@@ -1,0 +1,84 @@
+--2024-01-25 23:09:59--  https://gef.blah.cat/sh
+Resolving gef.blah.cat (gef.blah.cat)... 40.121.232.30
+Connecting to gef.blah.cat (gef.blah.cat)|40.121.232.30|:443... connected.
+HTTP request sent, awaiting response... 301 Moved Permanently
+Location: https://github.com/hugsy/gef/raw/main/scripts/gef.sh [following]
+--2024-01-25 23:10:00--  https://github.com/hugsy/gef/raw/main/scripts/gef.sh
+Resolving github.com (github.com)... 20.205.243.166
+Connecting to github.com (github.com)|20.205.243.166|:443... failed: Connection timed out.
+Retrying.
+
+--2024-01-25 23:12:13--  (try: 2)  https://github.com/hugsy/gef/raw/main/scripts/gef.sh
+Connecting to github.com (github.com)|20.205.243.166|:443... failed: Connection timed out.
+Retrying.
+
+--2024-01-25 23:14:27--  (try: 3)  https://github.com/hugsy/gef/raw/main/scripts/gef.sh
+Connecting to github.com (github.com)|20.205.243.166|:443... failed: Connection timed out.
+Retrying.
+
+--2024-01-25 23:16:41--  (try: 4)  https://github.com/hugsy/gef/raw/main/scripts/gef.sh
+Connecting to github.com (github.com)|20.205.243.166|:443... failed: Connection timed out.
+Retrying.
+
+--2024-01-25 23:18:55--  (try: 5)  https://github.com/hugsy/gef/raw/main/scripts/gef.sh
+Connecting to github.com (github.com)|20.205.243.166|:443... failed: Connection timed out.
+Retrying.
+
+--2024-01-25 23:21:15--  (try: 6)  https://github.com/hugsy/gef/raw/main/scripts/gef.sh
+Connecting to github.com (github.com)|20.205.243.166|:443... failed: Connection timed out.
+Retrying.
+
+--2024-01-25 23:23:34--  (try: 7)  https://github.com/hugsy/gef/raw/main/scripts/gef.sh
+Connecting to github.com (github.com)|20.205.243.166|:443... failed: Connection timed out.
+Retrying.
+
+--2024-01-25 23:25:53--  (try: 8)  https://github.com/hugsy/gef/raw/main/scripts/gef.sh
+Connecting to github.com (github.com)|20.205.243.166|:443... failed: Connection timed out.
+Retrying.
+
+--2024-01-25 23:28:12--  (try: 9)  https://github.com/hugsy/gef/raw/main/scripts/gef.sh
+Connecting to github.com (github.com)|20.205.243.166|:443... failed: Connection timed out.
+Retrying.
+
+--2024-01-25 23:30:31--  (try:10)  https://github.com/hugsy/gef/raw/main/scripts/gef.sh
+Connecting to github.com (github.com)|20.205.243.166|:443... failed: Connection timed out.
+Retrying.
+
+--2024-01-25 23:32:51--  (try:11)  https://github.com/hugsy/gef/raw/main/scripts/gef.sh
+Connecting to github.com (github.com)|20.205.243.166|:443... failed: Connection timed out.
+Retrying.
+
+--2024-01-25 23:35:14--  (try:12)  https://github.com/hugsy/gef/raw/main/scripts/gef.sh
+Connecting to github.com (github.com)|20.205.243.166|:443... failed: Connection timed out.
+Retrying.
+
+--2024-01-25 23:37:37--  (try:13)  https://github.com/hugsy/gef/raw/main/scripts/gef.sh
+Connecting to github.com (github.com)|20.205.243.166|:443... failed: Connection timed out.
+Retrying.
+
+--2024-01-25 23:40:01--  (try:14)  https://github.com/hugsy/gef/raw/main/scripts/gef.sh
+Connecting to github.com (github.com)|20.205.243.166|:443... failed: Connection timed out.
+Retrying.
+
+--2024-01-25 23:42:24--  (try:15)  https://github.com/hugsy/gef/raw/main/scripts/gef.sh
+Connecting to github.com (github.com)|20.205.243.166|:443... failed: Connection timed out.
+Retrying.
+
+--2024-01-25 23:44:48--  (try:16)  https://github.com/hugsy/gef/raw/main/scripts/gef.sh
+Connecting to github.com (github.com)|20.205.243.166|:443... failed: Connection timed out.
+Retrying.
+
+--2024-01-25 23:47:11--  (try:17)  https://github.com/hugsy/gef/raw/main/scripts/gef.sh
+Connecting to github.com (github.com)|20.205.243.166|:443... failed: Connection timed out.
+Retrying.
+
+--2024-01-25 23:49:34--  (try:18)  https://github.com/hugsy/gef/raw/main/scripts/gef.sh
+Connecting to github.com (github.com)|20.205.243.166|:443... failed: Connection timed out.
+Retrying.
+
+--2024-01-25 23:51:58--  (try:19)  https://github.com/hugsy/gef/raw/main/scripts/gef.sh
+Connecting to github.com (github.com)|20.205.243.166|:443... failed: Connection timed out.
+Retrying.
+
+--2024-01-25 23:54:21--  (try:20)  https://github.com/hugsy/gef/raw/main/scripts/gef.sh
+Connecting to github.com (github.com)|20.205.243.166|:443... 

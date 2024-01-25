@@ -9,6 +9,7 @@ use x86_64::structures::paging::page::PageRange;
 use x86_64::structures::paging::{mapper::*, *};
 use x86_64::{align_up, PhysAddr, VirtAddr};
 use xmas_elf::{program, ElfFile};
+use xmas_elf::program::Flags;
 
 /// Map physical memory
 ///
@@ -129,7 +130,14 @@ fn load_segment(
     let mut page_table_flags = PageTableFlags::PRESENT;
 
     // FIXME: handle page table flags with segment flags
-    unimplemented!("Handle page table flags with segment flags!");
+    // unimplemented!("Handle page table flags with segment flags!");
+    let segment_flags = segment.flags();
+    if !segment_flags.is_execute() {
+        page_table_flags |= PageTableFlags::NO_EXECUTE;
+    }
+    if segment_flags.is_write() {
+        page_table_flags |= PageTableFlags::WRITABLE;
+    }
 
     trace!("Segment page table flag: {:?}", page_table_flags);
 
