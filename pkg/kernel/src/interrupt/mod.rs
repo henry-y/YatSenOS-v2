@@ -1,7 +1,7 @@
 mod apic;
 mod consts;
-// mod clock;
-// mod serial;
+mod clock;
+mod serial;
 mod exceptions;
 
 use apic::*;
@@ -13,8 +13,10 @@ lazy_static! {
         let mut idt = InterruptDescriptorTable::new();
         unsafe {
             exceptions::register_idt(&mut idt);
-            // TODO: clock::register_idt(&mut idt);
-            // TODO: serial::register_idt(&mut idt);
+            // TODO: 
+            clock::register_idt(&mut idt);
+            // TODO: 
+            // serial::register_idt(&mut idt);
         }
         idt
     };
@@ -25,7 +27,9 @@ pub fn init() {
     IDT.load();
 
     // FIXME: check and init APIC
-
+    let mut lapic = unsafe { XApic::new(physical_to_virtual(LAPIC_ADDR)) };
+    // info!("breakpoint1");
+    lapic.cpu_init();
     // FIXME: enable serial irq with IO APIC (use enable_irq)
 
     info!("Interrupts Initialized.");
