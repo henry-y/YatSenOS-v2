@@ -1,6 +1,5 @@
 use core::fmt;
 
-use super::serial::{get_serial_for_sure, init_SERIAL};
 use x86_64::instructions::port::{PortGeneric, ReadWriteAccess, WriteOnlyAccess, ReadOnlyAccess};
 /// A port-mapped UART 16550 serial interface.
 pub struct SerialPort {
