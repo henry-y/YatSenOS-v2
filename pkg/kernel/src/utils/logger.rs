@@ -6,6 +6,8 @@ pub fn init() {
 
     // FIXME: Configure the logger
 
+    log::set_max_level(log::LevelFilter::Info);
+
     info!("Logger Initialized.");
 }
 
@@ -18,6 +20,22 @@ impl log::Log for Logger {
 
     fn log(&self, record: &Record) {
         // FIXME: Implement the logger with serial output
+        const RESET: &str = "\x1B[0m";
+        const RED: &str = "\x1B[31m";
+        const GREEN: &str = "\x1B[32m";
+        const YELLOW: &str = "\x1B[33m";
+        if self.enabled(record.metadata()) {
+            match record.level() {
+                log::Level::Error => println!("{}[{}]{} {}", RED, record.level(), RESET, record.args()),
+                log::Level::Warn => println!("{}[{}]{} {}", YELLOW, record.level(), RESET, record.args()),
+                log::Level::Info => println!("{}[{}]{} {}", GREEN, record.level(), RESET, record.args()),
+                _ => println!("[{}] {}", record.level(), record.args()),
+            }
+            if record.level() != log::Level::Info {
+                println!("occur at {}:{}", record.file_static().unwrap(), record.line().unwrap());   
+            } 
+        }
+        
     }
 
     fn flush(&self) {}

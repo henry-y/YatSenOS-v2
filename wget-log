@@ -81,4 +81,6 @@ Connecting to github.com (github.com)|20.205.243.166|:443... failed: Connection 
 Retrying.
 
 --2024-01-25 23:54:21--  (try:20)  https://github.com/hugsy/gef/raw/main/scripts/gef.sh
-Connecting to github.com (github.com)|20.205.243.166|:443... 
+Connecting to github.com (github.com)|20.205.243.166|:443... failed: Connection timed out.
+Giving up.
+
