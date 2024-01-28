@@ -25,15 +25,15 @@ impl log::Log for Logger {
         const GREEN: &str = "\x1B[32m";
         const YELLOW: &str = "\x1B[33m";
         if self.enabled(record.metadata()) {
+            if record.level() != log::Level::Info {
+                print!("occur at {}:{} ", record.file_static().unwrap(), record.line().unwrap());   
+            } 
             match record.level() {
                 log::Level::Error => println!("{}[{}]{} {}", RED, record.level(), RESET, record.args()),
                 log::Level::Warn => println!("{}[{}]{} {}", YELLOW, record.level(), RESET, record.args()),
                 log::Level::Info => println!("{}[{}]{} {}", GREEN, record.level(), RESET, record.args()),
                 _ => println!("[{}] {}", record.level(), record.args()),
             }
-            if record.level() != log::Level::Info {
-                println!("occur at {}:{}", record.file_static().unwrap(), record.line().unwrap());   
-            } 
         }
         
     }

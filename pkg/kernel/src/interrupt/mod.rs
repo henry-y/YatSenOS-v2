@@ -1,12 +1,13 @@
 mod apic;
 mod consts;
-mod clock;
+pub mod clock;
 mod serial;
 mod exceptions;
 
 use apic::*;
 use x86_64::structures::idt::InterruptDescriptorTable;
 use crate::memory::physical_to_virtual;
+use consts::*;
 
 lazy_static! {
     static ref IDT: InterruptDescriptorTable = {
@@ -16,7 +17,7 @@ lazy_static! {
             // TODO: 
             clock::register_idt(&mut idt);
             // TODO: 
-            // serial::register_idt(&mut idt);
+            serial::register_idt(&mut idt);
         }
         idt
     };
@@ -31,7 +32,8 @@ pub fn init() {
     // info!("breakpoint1");
     lapic.cpu_init();
     // FIXME: enable serial irq with IO APIC (use enable_irq)
-
+    enable_irq(Irq::Serial0 as u8, 0);
+    
     info!("Interrupts Initialized.");
 }
 

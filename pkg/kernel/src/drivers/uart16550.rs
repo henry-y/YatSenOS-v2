@@ -39,6 +39,15 @@ impl SerialPort {
             self.port_fifo_ctrl.write(0xC7);
 
             self.port_modem_ctrl.write(0x0B);
+            
+            self.port_modem_ctrl.write(0x1E);
+            self.port_data.write(0xAE);
+
+            if(self.port_data.read() != 0xAE) {
+                panic!("Serial port not found");
+            }
+
+            self.port_modem_ctrl.write(0x0F);
             self.port_int_en.write(0x01);
         }
     }
@@ -48,7 +57,7 @@ impl SerialPort {
         // FIXME: Send a byte on the serial port
         unsafe {
             // Wait until the port is ready to send
-            while PortGeneric::read(&mut self.port_line_sts) & 0x20 == 0 {}
+            while (PortGeneric::read(&mut self.port_line_sts) & 0x20) == 0 {}
 
             // Send the byte
             PortGeneric::write(&mut self.port_data, data);
@@ -60,13 +69,14 @@ impl SerialPort {
     pub fn receive(&mut self) -> Option<u8> {
         // FIXME: Receive a byte on the serial port no wait
         unsafe {
+            // trace!("receive something in uart");
             // Check if the port has data to receive
-            if PortGeneric::read(&mut self.port_line_sts) & 0x01 == 0 {
+            if (self.port_line_sts.read() & 0x01) == 0 {
                 return None;
             }
 
             // Receive the byte
-            Some(PortGeneric::read(&mut self.port_data))
+            Some(self.port_data.read())
         }
     }
 }
