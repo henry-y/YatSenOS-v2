@@ -11,7 +11,7 @@ pub unsafe fn register_idt(idt: &mut InterruptDescriptorTable) {
 }
 
 pub extern "C" fn clock(mut context: ProcessContext) {
-    crate::proc::switch(&mut context);
+    switch(&mut context);
     super::ack();
 }
 

@@ -6,6 +6,7 @@ mod pid;
 mod process;
 mod processor;
 
+use crate::alloc::string::ToString;
 use manager::*;
 use paging::*;
 use process::*;
@@ -74,8 +75,8 @@ pub fn init() {
 pub fn switch(context: &mut ProcessContext) {
     x86_64::instructions::interrupts::without_interrupts(|| {
         // FIXME: switch to the next process
-        PROCESS_MANAGER::save_current(&self, &ProcessContext);
-        PROCESS_MANAGER::switch_next(&self, &mut ProcessContext);
+        get_process_manager().save_current(context);
+        get_process_manager().switch_next(context);
     });
 }
 
@@ -92,11 +93,11 @@ pub fn print_process_list() {
     })
 }
 
-pub fn env(key: &str) -> Option<String> {
-    x86_64::instructions::interrupts::without_interrupts(|| {
-        // FIXME: get current process's environment variable
-    })
-}
+// pub fn env(key: &str) -> Option<String> {
+//     x86_64::instructions::interrupts::without_interrupts(|| {
+//         // FIXME: get current process's environment variable
+//     })
+// }
 
 pub fn process_exit(ret: isize) -> ! {
     x86_64::instructions::interrupts::without_interrupts(|| {

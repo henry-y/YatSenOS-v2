@@ -17,13 +17,11 @@ pub fn init(init: Arc<Process>) {
     // get process inner
     let mut inner = init.write();
     inner.restore(&mut ProcessContext::default());
-
-    //这里的default返回的真的是当前的ProcessContext吗？存疑
-    //也不知道写啥，先放着
-    //好像是对的，毕竟是一开始
+    inner.resume();
 
     drop(inner);
     // FIXME: set processor's current pid to init's pid
+    crate::proc::processor::set_pid(init.pid());
     PROCESS_MANAGER.call_once(|| ProcessManager::new(init));
 }
 
@@ -82,24 +80,37 @@ impl ProcessManager {
         // FIXME: update current process's context
         inner.save(context);
         // FIXME: push current process to ready queue if still alive
-        drop(inner);
-        self.push_ready(cur.pid());
+        
+        if inner.status() != ProgramStatus::Dead {
+            drop(inner);
+            self.push_ready(cur.pid());
+        } 
         
     }
 
     pub fn switch_next(&self, context: &mut ProcessContext) -> ProcessId {
 
         // FIXME: fetch the next process from ready queue
-        let next_pid = self.ready_queue.lock().pop_front().unwrap();
+        let mut next_pid = self.ready_queue.lock().pop_front().unwrap();
         // FIXME: check if the next process is ready,
         //        continue to fetch if not ready
-        while next_pid.status() != ProgramStatus::Ready {
-            self.push_ready(next_pid); //这个要吗？
+        // get inner from btree
+        let mut inner_status = 
+            self.get_proc(&next_pid)
+            .expect("Get Process In BTreeMap Err").read().status();
+        while inner_status != ProgramStatus::Ready {
+            self.push_ready(next_pid); 
+            // 把这个重新扔进调度队列里面
             next_pid = self.ready_queue.lock().pop_front().unwrap();
+            inner_status = 
+                self.get_proc(&next_pid)
+                .expect("Get Process In BTreeMap Err")
+                .read().status();
         }
         // FIXME: restore next process's context
-        let next = self.get_proc(&next_pid).unwrap();
-        next.restore(context);
+        self.get_proc(&next_pid)
+            .expect("Get Process In BTreeMap Err").
+            write().restore(context);
 
         // FIXME: update processor's current pid
         processor::set_pid(next_pid);

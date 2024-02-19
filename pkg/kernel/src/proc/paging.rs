@@ -75,7 +75,7 @@ impl PageTableContext {
 impl core::fmt::Debug for PageTableContext {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("PageTable")
-            .field("ref", &self.using_count())
+            // .field("ref", &self.using_count())
             .field("addr", &self.reg.addr)
             .field("flags", &self.reg.flags)
             .finish()

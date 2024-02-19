@@ -1,4 +1,4 @@
-use crate::{drivers::input::push_key, serial::{get_serial, get_serial_for_sure}};
+use crate::{drivers::input::push_key, serial::get_serial_for_sure};
 use super::consts::*;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 

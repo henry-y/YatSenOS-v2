@@ -93,7 +93,8 @@ impl Process {
     pub fn alloc_init_stack(&self) -> VirtAddr {
         // FIXME: alloc init stack base on self pid
         // 4GiB = 0x1000_0000
-        let vaddr = STACK_MAX - self.pid as u64 * 0x100000 * PAGE_SIZE;
+        let pid : u16 = self.pid().into();
+        let vaddr = STACK_MAX - pid as u64 * 0x100000 * PAGE_SIZE as u64;
         VirtAddr::new(vaddr)
     }
 }
@@ -135,7 +136,7 @@ impl ProcessInner {
     /// mark the process as ready
     pub(super) fn save(&mut self, context: &ProcessContext) {
         // FIXME: save the process's context
-        self.context = context.clone();
+        self.context.save(context);
         self.pause();
     }
 
@@ -143,18 +144,12 @@ impl ProcessInner {
     /// mark the process as running
     pub(super) fn restore(&mut self, context: &mut ProcessContext) {
         // FIXME: restore the process's context
-        self.context = context.clone();
-        self.resume();
+        self.context.restore(context);
+        
         // FIXME: restore the process's page table
-        // write into cr3 reg
-        // 获取当前页表的物理地址
-        let page_table = self.page_table.as_ref().unwrap();
-        let page_table_phys = page_table.get_page_table_phys();
-        let cr3 = PhysFrame::containing_address(page_table_phys);
-        unsafe {
-            x86_64::registers::control::Cr3::write(cr3, x86_64::registers::control::Cr3Flags::empty());
-        }
-        // 真这么写吗（
+        self.page_table.as_ref().expect("get_page_table_err").load();
+        
+        self.resume();
     }
 
     pub fn parent(&self) -> Option<Arc<Process>> {

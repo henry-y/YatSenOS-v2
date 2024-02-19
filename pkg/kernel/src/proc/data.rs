@@ -5,7 +5,6 @@ use x86_64::{
     VirtAddr,
 };
 
-use super::*;
 
 #[derive(Debug, Clone)]
 pub struct ProcessData {
@@ -45,5 +44,11 @@ impl ProcessData {
 
     pub fn is_on_stack(&self, addr: VirtAddr) -> bool {
         // FIXME: check if the address is on the stack
+        // check if the address is in the stack segment
+        if let Some(stack) = &self.stack_segment {
+            stack.start.start_address() <= addr && addr < stack.end.start_address()
+        } else {
+            false
+        }
     }
 }

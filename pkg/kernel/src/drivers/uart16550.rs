@@ -43,7 +43,7 @@ impl SerialPort {
             self.port_modem_ctrl.write(0x1E);
             self.port_data.write(0xAE);
 
-            if(self.port_data.read() != 0xAE) {
+            if self.port_data.read() != 0xAE {
                 panic!("Serial port not found");
             }
 

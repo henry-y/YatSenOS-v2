@@ -7,8 +7,10 @@ mod regs;
 pub mod func;
 pub mod logger;
 
+pub use super::*;
 pub use macros::*;
 pub use regs::*;
+use alloc::format;
 
 use crate::proc::*;
 
@@ -26,20 +28,20 @@ __  __      __  _____            ____  _____
     )
 }
 
-pub fn new_test_thread(id: &str) -> ProcessId {
-    let proc_data = ProcessData::new();
-    proc_data.set_env("id", id);
-
-    spawn_kernel_thread(
-        utils::func::test,
-        format!("#{}_test", id),
-        Some(proc_data),
-    )
-}
+// pub fn new_test_thread(id: &str) -> ProcessId {
+//     let proc_data = ProcessData::new();
+//     // TODO:
+//     // proc_data.set_env("id", id);
+//     spawn_kernel_thread(
+//         crate::utils::func::test,
+//         format!("#{}_test", id),
+//         Some(proc_data),
+//     )
+// }
 
 pub fn new_stack_test_thread() {
     let pid = spawn_kernel_thread(
-        utils::func::stack_test,
+        crate::utils::func::stack_test,
         alloc::string::String::from("stack"),
         None,
     );
@@ -48,16 +50,17 @@ pub fn new_stack_test_thread() {
     wait(pid);
 }
 
-// fn wait(pid: ProcessId) {
-//     loop {
-//         // FIXME: try to get the status of the process
+fn wait(pid: ProcessId) {
+    loop {
+        // FIXME: try to get the status of the process
 
-//         // HINT: it's better to use the exit code
-
-//         if /* FIXME: is the process exited? */ {
-//             x86_64::instructions::hlt();
-//         } else {
-//             break;
-//         }
-//     }
-// }
+        // HINT: it's better to use the exit code
+        
+        // // TODO:
+        // if /* FIXME: is the process exited? */ {
+        //     x86_64::instructions::hlt();
+        // } else {
+        //     break;
+        // }
+    }
+}

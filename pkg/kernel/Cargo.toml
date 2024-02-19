@@ -17,4 +17,4 @@ bit_field = "0.10"
 libm = "0.2"
 linked_list_allocator = "0.10"
 volatile = "0.5"
-crossbeam-queue = "0.3"
+crossbeam-queue = { version = "0.3", default-features = false, features = ["alloc"] }

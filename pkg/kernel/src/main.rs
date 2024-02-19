@@ -33,7 +33,7 @@ pub fn kernel_main(boot_info: &'static boot::BootInfo) -> ! {
                 ysos::new_stack_test_thread();
             }
             "test" => {
-                ysos::new_test_thread(format!("{}", test_num).as_str());
+                // ysos::new_test_thread(format!("{}", test_num).as_str());
                 test_num += 1;
             }
             _ => println!("[=] {}", line),
