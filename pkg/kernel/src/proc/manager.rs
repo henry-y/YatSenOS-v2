@@ -66,6 +66,14 @@ impl ProcessManager {
         self.processes.read().get(pid).cloned()
     }
 
+    pub fn get_exit_code(&self, pid: ProcessId) -> Option<isize> {
+        if self.get_proc(&pid).unwrap().read().status() == ProgramStatus::Dead {
+            self.get_proc(&pid).unwrap().read().exit_code()
+        } else {
+            None
+        }
+    }
+
     pub fn current(&self) -> Arc<Process> {
         self.get_proc(&processor::get_pid())
             .expect("No current process")

@@ -93,11 +93,19 @@ pub fn print_process_list() {
     })
 }
 
-// pub fn env(key: &str) -> Option<String> {
-//     x86_64::instructions::interrupts::without_interrupts(|| {
-//         // FIXME: get current process's environment variable
-//     })
-// }
+pub fn env(key: &str) -> Option<String> {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        // FIXME: get current process's environment variable
+        // Deref trait 允许一个类型表现得像引用，可以直接访问其内部数据。
+        get_process_manager().current().read().env(key)
+    })
+}
+
+pub fn wait(pid: ProcessId) -> Option<isize> {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        get_process_manager().get_exit_code(pid)
+    })
+}
 
 pub fn process_exit(ret: isize) -> ! {
     x86_64::instructions::interrupts::without_interrupts(|| {
