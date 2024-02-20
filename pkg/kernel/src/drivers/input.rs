@@ -45,7 +45,7 @@ pub fn pop_key() -> u8 {
     loop {
         let key = try_pop_key();
         if key != None {
-            trace!("key: {}", key.unwrap());
+            // trace!("key: {}", key.unwrap());
             return key.unwrap();
         }
     }

@@ -34,7 +34,7 @@ pub fn get_process_manager() -> &'static ProcessManager {
 pub struct ProcessManager {
     processes: RwLock<BTreeMap<ProcessId, Arc<Process>>>,
     ready_queue: Mutex<VecDeque<ProcessId>>,
-}
+} 
 
 impl ProcessManager {
     pub fn new(init: Arc<Process>) -> Self {
@@ -139,12 +139,18 @@ impl ProcessManager {
         let stack_top = proc.alloc_init_stack();
 
         // FIXME: set the stack frame
-
+        let mut inner = proc.write();
+        inner.pause();
+        inner.set_init_stack(stack_top, entry);
+        drop(inner);
         // FIXME: add to process map
-
+        let pid = proc.pid();
+        
+        self.add_proc(pid, proc);
         // FIXME: push to ready queue
-
-        KERNEL_PID
+        self.push_ready(pid);
+        
+        pid
     }
 
     pub fn kill_current(&self, ret: isize) {

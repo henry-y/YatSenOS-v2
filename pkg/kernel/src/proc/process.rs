@@ -10,6 +10,8 @@ use x86_64::structures::paging::mapper::MapToError;
 use x86_64::structures::paging::page::PageRange;
 use x86_64::structures::paging::*;
 use x86_64::VirtAddr;
+use elf;
+
 
 #[derive(Clone)]
 pub struct Process {
@@ -93,9 +95,23 @@ impl Process {
     pub fn alloc_init_stack(&self) -> VirtAddr {
         // FIXME: alloc init stack base on self pid
         // 4GiB = 0x1000_0000
+        // 2MiB = 0x200_000
         let pid : u16 = self.pid().into();
-        let vaddr = STACK_MAX - pid as u64 * 0x100000 * PAGE_SIZE as u64;
-        VirtAddr::new(vaddr)
+        let vaddr = STACK_INIT_BOT - (pid - 1) as u64 * 0x1_0000_0000;
+        trace!("Alloc init stack: pid:{}: {:#?}", pid, vaddr);
+        trace!("the all stack range is: [{:#x},{:#x})", 
+            STACK_MAX - (pid) as u64 * 0x1_0000_0000, 
+            STACK_MAX - (pid-1) as u64 * 0x1_0000_0000);
+        let frame_allocator = 
+            &mut *get_frame_alloc_for_sure();
+        let page_range = 
+            elf::map_range(vaddr, 1, 
+            &mut self.read().page_table.as_ref().unwrap().mapper(), 
+            frame_allocator);
+        let rt_addr = page_range.unwrap();
+        trace!("Alloc init stack's begin is: {:#?}", rt_addr.end.start_address());
+        
+        rt_addr.end.start_address()
     }
 }
 
@@ -130,6 +146,10 @@ impl ProcessInner {
 
     pub fn is_ready(&self) -> bool {
         self.status == ProgramStatus::Ready
+    }
+
+    pub fn set_init_stack(&mut self, stack_top: VirtAddr, entry: VirtAddr) {
+        self.context.init_stack_frame(entry, stack_top)
     }
 
     /// Save the process's context

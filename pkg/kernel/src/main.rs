@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use ysos::{proc::print_process_list, *};
+use ysos::{func::stack_test, proc::print_process_list, *};
 use ysos_kernel as ysos;
 
 extern crate alloc;
@@ -14,8 +14,13 @@ pub fn kernel_main(boot_info: &'static boot::BootInfo) -> ! {
     // FIXME: update lib.rs to pass following tests
 
     // 1. run some (about 5) "test", show these threads are running concurrently
-
+    ysos::new_test_thread(format!("{}", 0).as_str());
+    ysos::new_test_thread(format!("{}", 1).as_str());
+    ysos::new_test_thread(format!("{}", 2).as_str());
+    ysos::new_test_thread(format!("{}", 3).as_str());
+    ysos::new_test_thread(format!("{}", 4).as_str());
     // 2. run "stack", create a huge stack, handle page fault properly
+    // stack_test();
 
     print_process_list();
     let mut test_num = 0;
@@ -33,7 +38,7 @@ pub fn kernel_main(boot_info: &'static boot::BootInfo) -> ! {
                 ysos::new_stack_test_thread();
             }
             "test" => {
-                // ysos::new_test_thread(format!("{}", test_num).as_str());
+                ysos::new_test_thread(format!("{}", test_num).as_str());
                 test_num += 1;
             }
             _ => println!("[=] {}", line),

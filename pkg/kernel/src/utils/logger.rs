@@ -32,6 +32,7 @@ impl log::Log for Logger {
                 log::Level::Error => println!("{}[{}]{} {}", RED, record.level(), RESET, record.args()),
                 log::Level::Warn => println!("{}[{}]{} {}", YELLOW, record.level(), RESET, record.args()),
                 log::Level::Info => println!("{}[{}]{} {}", GREEN, record.level(), RESET, record.args()),
+                log::Level::Trace => println!("{}[{}] {} {}", YELLOW, record.level(), record.args(), RESET),
                 _ => println!("[{}] {}", record.level(), record.args()),
             }
         }

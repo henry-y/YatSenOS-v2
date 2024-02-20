@@ -28,16 +28,16 @@ __  __      __  _____            ____  _____
     )
 }
 
-// pub fn new_test_thread(id: &str) -> ProcessId {
-//     let proc_data = ProcessData::new();
-//     // TODO:
-//     // proc_data.set_env("id", id);
-//     spawn_kernel_thread(
-//         crate::utils::func::test,
-//         format!("#{}_test", id),
-//         Some(proc_data),
-//     )
-// }
+pub fn new_test_thread(id: &str) -> ProcessId {
+    let mut proc_data = ProcessData::new();
+    // TODO:
+    proc_data.set_env("id", id);
+    spawn_kernel_thread(
+        crate::utils::func::test,
+        format!("#{}_test", id),
+        Some(proc_data),
+    )
+}
 
 pub fn new_stack_test_thread() {
     let pid = spawn_kernel_thread(
