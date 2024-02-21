@@ -6,6 +6,7 @@ use crate::memory::{
 };
 use alloc::collections::BTreeMap;
 use alloc::{collections::VecDeque, format, sync::Arc};
+use bitflags::Flags;
 use spin::{Mutex, RwLock};
 use x86_64::VirtAddr;
 
@@ -74,6 +75,10 @@ impl ProcessManager {
         }
     }
 
+    pub fn get_page_fault_generator(&self) -> ProcessId {
+        self.current().pid()
+    }
+
     pub fn current(&self) -> Arc<Process> {
         self.get_proc(&processor::get_pid())
             .expect("No current process")
@@ -93,36 +98,44 @@ impl ProcessManager {
             drop(inner);
             self.push_ready(cur.pid());
         } 
+
+        // if cur.read().name() == "stack" {
+        //     trace!("print stack process in save_curent: {:?}", cur);
+        // }
         
     }
 
     pub fn switch_next(&self, context: &mut ProcessContext) -> ProcessId {
 
         // FIXME: fetch the next process from ready queue
-        let mut next_pid = self.ready_queue.lock().pop_front().unwrap();
-        // FIXME: check if the next process is ready,
-        //        continue to fetch if not ready
-        // get inner from btree
-        let mut inner_status = 
-            self.get_proc(&next_pid)
-            .expect("Get Process In BTreeMap Err").read().status();
-        while inner_status != ProgramStatus::Ready {
-            self.push_ready(next_pid); 
-            // 把这个重新扔进调度队列里面
-            next_pid = self.ready_queue.lock().pop_front().unwrap();
-            inner_status = 
-                self.get_proc(&next_pid)
-                .expect("Get Process In BTreeMap Err")
-                .read().status();
-        }
-        // FIXME: restore next process's context
-        self.get_proc(&next_pid)
-            .expect("Get Process In BTreeMap Err").
-            write().restore(context);
+        let mut cur_pid = processor::get_pid();
 
-        // FIXME: update processor's current pid
-        processor::set_pid(next_pid);
-        next_pid
+        while let Some(next_pid) = self.ready_queue.lock().pop_front() {
+            let proc = self.get_proc(&next_pid);
+            if proc.is_none() {
+                continue;
+            }
+            let proc = proc.unwrap();
+
+            if proc.read().status() != ProgramStatus::Ready {
+                trace!("dead process: {} {:?}", next_pid, proc.read().status());
+                continue;
+            }
+
+            let mut inner = proc.write();
+            inner.restore(context);
+            drop(inner);
+
+            processor::set_pid(next_pid);
+            cur_pid = next_pid;
+
+            break;
+
+        }
+
+        cur_pid
+
+
     }
 
     pub fn spawn_kernel_thread(
@@ -159,9 +172,24 @@ impl ProcessManager {
 
     pub fn handle_page_fault(&self, addr: VirtAddr, err_code: PageFaultErrorCode) -> bool {
         // FIXME: handle page fault
+        if !self.current().read().is_on_stack(addr) || err_code.contains(PageFaultErrorCode::PROTECTION_VIOLATION) {
+            
+            if !self.current().read().is_on_stack(addr) {
+                trace!("Page fault: not on stack");
+            } else {
+                trace!("Page fault: protection violation");
+            }
 
-        false
+            return false;
+
+        } else {
+            self.current().write().update_stack_frame(addr);
+        }
+        true
     }
+
+    // [0x3ff900000000,0x3ffa00000000) 
+    // 0x3ff9ffff7f90
 
     pub fn kill(&self, pid: ProcessId, ret: isize) {
         let proc = self.get_proc(&pid);

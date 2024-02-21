@@ -19,10 +19,11 @@ pub fn kernel_main(boot_info: &'static boot::BootInfo) -> ! {
     ysos::new_test_thread(format!("{}", 2).as_str());
     ysos::new_test_thread(format!("{}", 3).as_str());
     ysos::new_test_thread(format!("{}", 4).as_str());
-    // 2. run "stack", create a huge stack, handle page fault properly
-    // stack_test();
-
     print_process_list();
+    
+    // 2. run "stack", create a huge stack, handle page fault properly
+    new_stack_test_thread();
+    
     let mut test_num = 0;
 
     loop {

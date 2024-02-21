@@ -93,6 +93,12 @@ pub fn print_process_list() {
     })
 }
 
+pub fn get_page_fault_generator() -> ProcessId {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        get_process_manager().get_page_fault_generator()
+    })
+}
+
 pub fn env(key: &str) -> Option<String> {
     x86_64::instructions::interrupts::without_interrupts(|| {
         // FIXME: get current process's environment variable

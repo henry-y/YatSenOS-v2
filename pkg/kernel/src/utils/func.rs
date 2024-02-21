@@ -25,7 +25,9 @@ fn huge_stack() {
 
     let mut stack = [0u64; 0x1000];
 
+    info!("qwq");
     for (idx, item) in stack.iter_mut().enumerate() {
+        // info!("huge_stack_test: stack[{:?}] = {:?}", idx, item);
         *item = idx as u64;
     }
 
@@ -36,5 +38,7 @@ fn huge_stack() {
 
 pub fn stack_test() -> ! {
     huge_stack();
+    trace!("pass huge stack test");
+    
     crate::proc::process_exit(0)
 }

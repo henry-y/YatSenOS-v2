@@ -53,14 +53,14 @@ pub fn new_stack_test_thread() {
 fn wait(pid: ProcessId) {
     loop {
         // FIXME: try to get the status of the process
-
+        let status = crate::proc::wait(pid);
         // HINT: it's better to use the exit code
         
-        // // TODO:
-        // if /* FIXME: is the process exited? */ {
-        //     x86_64::instructions::hlt();
-        // } else {
-        //     break;
-        // }
+        // TODO:
+        if status.is_none() {
+            x86_64::instructions::hlt();
+        } else {
+            break;
+        }
     }
 }

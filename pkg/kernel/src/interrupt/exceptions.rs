@@ -154,10 +154,15 @@ pub extern "x86-interrupt" fn page_fault_handler(
     stack_frame: InterruptStackFrame,
     err_code: PageFaultErrorCode,
 ) {
-    panic!(
-        "EXCEPTION: PAGE FAULT, ERROR_CODE: {:?}\n\nTrying to access: {:#x}\n{:#?}",
-        err_code,
-        Cr2::read(),
-        stack_frame
-    );
+    if !crate::proc::handle_page_fault(Cr2::read(), err_code) {
+        warn!(
+            "EXCEPTION: PAGE FAULT, ERROR_CODE: {:?}\n\nTrying to access: {:#x}\n{:#?}",
+            err_code,
+            Cr2::read(),
+            stack_frame
+        );
+        // FIXME: print info about which process causes page fault?
+        warn!("process #{} cause this fault\n", crate::proc::get_page_fault_generator());
+        panic!("Cannot handle page fault!");
+    }
 }

@@ -105,12 +105,19 @@ impl Process {
         let frame_allocator = 
             &mut *get_frame_alloc_for_sure();
         let page_range = 
-            elf::map_range(vaddr, 1, 
+            elf::map_range(vaddr, STACK_DEF_PAGE, 
             &mut self.read().page_table.as_ref().unwrap().mapper(), 
             frame_allocator);
         let rt_addr = page_range.unwrap();
-        trace!("Alloc init stack's begin is: {:#?}", rt_addr.end.start_address());
-        
+
+        self.write().set_stack(rt_addr.start.start_address(), STACK_DEF_PAGE);
+        self.write().set_max_stack(VirtAddr::new(STACK_MAX - (pid) as u64 * 0x1_0000_0000), 
+                                    VirtAddr::new(STACK_MAX - (pid-1) as u64 * 0x1_0000_0000));
+        // 对页面进行加，而不是对addr进行加，重载了加法
+
+        // trace!("Alloc init stack's begin is: {:#?}", rt_addr.end.start_address());
+        // trace!("stack range is: [{:#x},{:#x})", rt_addr.start.start_address(), rt_addr.start.start_address()+STACK_DEF_SIZE);
+        // trace!("vaddr is {:#x}", vaddr);
         rt_addr.end.start_address()
     }
 }
@@ -152,12 +159,35 @@ impl ProcessInner {
         self.context.init_stack_frame(entry, stack_top)
     }
 
+    pub fn update_stack_frame(&mut self, visit_addr: VirtAddr) {
+        let now_begin = self.stack_segment.unwrap().start.start_address();
+        let visit_page = Page::<Size4KiB>::containing_address(visit_addr);
+        let top_page = Page::<Size4KiB>::containing_address(now_begin);
+        let page_count = top_page - visit_page;
+        self.expand(visit_page.start_address(), page_count);
+
+        self.stack_segment = Some(Page::range(visit_page, self.stack_segment.unwrap().end));
+    }
+
+    fn expand(&self, start: VirtAddr, count: u64) {
+        let frame_allocator = 
+            &mut *get_frame_alloc_for_sure();
+        
+        elf::map_range(start.as_u64(), 
+            count, 
+            &mut self.page_table.as_ref().unwrap().mapper(), 
+            frame_allocator).expect("map range err");
+    }
+
     /// Save the process's context
     /// mark the process as ready
     pub(super) fn save(&mut self, context: &ProcessContext) {
         // FIXME: save the process's context
         self.context.save(context);
-        self.pause();
+        if self.status != ProgramStatus::Dead {
+            // 注意这里的逻辑，最后啥都做完的时候卡了两小时就是因为这里save的时候没判断是否dead
+            self.pause();
+        }
     }
 
     /// Restore the process's context
@@ -166,10 +196,15 @@ impl ProcessInner {
         // FIXME: restore the process's context
         self.context.restore(context);
         
+        // trace!("Restoring process {}, is dead?: {}, is_ready? {}", self.name(), 
+        //    self.status == ProgramStatus::Dead, self.is_ready());
+            
         // FIXME: restore the process's page table
         self.page_table.as_ref().expect("get_page_table_err").load();
         
-        self.resume();
+        if self.status != ProgramStatus::Dead {
+            self.resume();
+        }
     }
 
     pub fn parent(&self) -> Option<Arc<Process>> {
@@ -178,10 +213,13 @@ impl ProcessInner {
 
     pub fn kill(&mut self, ret: isize) {
         // FIXME: set exit code
-
+        self.exit_code = Some(ret);
         // FIXME: set status to dead
-
+        self.status = ProgramStatus::Dead;
         // FIXME: take and drop unused resources
+        drop(self.page_table.take());
+        drop(self.proc_data.take());
+        trace!("Process {} is dead., status: {:?}", self.name(), self.status);
     }
 }
 
