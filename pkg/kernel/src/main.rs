@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use ysos::{func::stack_test, proc::print_process_list, *};
+use ysos::*;
 use ysos_kernel as ysos;
 
 extern crate alloc;
@@ -10,41 +10,14 @@ boot::entry_point!(kernel_main);
 
 pub fn kernel_main(boot_info: &'static boot::BootInfo) -> ! {
     ysos::init(boot_info);
-
-    // FIXME: update lib.rs to pass following tests
-
-    // 1. run some (about 5) "test", show these threads are running concurrently
-    ysos::new_test_thread(format!("{}", 0).as_str());
-    ysos::new_test_thread(format!("{}", 1).as_str());
-    ysos::new_test_thread(format!("{}", 2).as_str());
-    ysos::new_test_thread(format!("{}", 3).as_str());
-    ysos::new_test_thread(format!("{}", 4).as_str());
-    print_process_list();
-    
-    // 2. run "stack", create a huge stack, handle page fault properly
-    new_stack_test_thread();
-    
-    let mut test_num = 0;
-
-    loop {
-        print_process_list();
-        print!("[>] ");
-        let line = input::get_line();
-        match line.trim() {
-            "exit" => break,
-            "ps" => {
-                ysos::proc::print_process_list();
-            }
-            "stack" => {
-                ysos::new_stack_test_thread();
-            }
-            "test" => {
-                ysos::new_test_thread(format!("{}", test_num).as_str());
-                test_num += 1;
-            }
-            _ => println!("[=] {}", line),
-        }
-    }
-
+    ysos::wait(spawn_init());
     ysos::shutdown(boot_info);
+}
+
+pub fn spawn_init() -> proc::ProcessId {
+    // NOTE: you may want to clear the screen before starting the shell
+    // print_serial!("\x1b[1;1H\x1b[2J");
+
+    proc::list_app();
+    proc::spawn("sh").unwrap()
 }
