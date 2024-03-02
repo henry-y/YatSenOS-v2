@@ -13,6 +13,8 @@ use manager::*;
 use paging::*;
 use process::*;
 use crate::memory::PAGE_SIZE;
+use crate::utils::resource::Resource;
+
 
 use alloc::string::String;
 pub use context::ProcessContext;
@@ -183,4 +185,11 @@ pub fn elf_spawn(name: String, elf: &ElfFile) -> Option<ProcessId> {
     });
 
     Some(pid)
+}
+
+/// get_file_descript_handler
+pub fn handle(fd: u8) -> Option<Resource> {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        get_process_manager().current().read().handle(fd)
+    })
 }

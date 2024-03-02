@@ -4,6 +4,7 @@ use x86_64::{
     structures::paging::{page::PageRange, Page},
     VirtAddr,
 };
+use crate::utils::resource::{Resource, StdIO};
 
 
 #[derive(Debug, Clone)]
@@ -14,15 +15,25 @@ pub struct ProcessData {
     // process specific data
     pub(super) stack_segment: Option<PageRange>,
     pub(super) max_stack_segment: Option<PageRange>,
+    pub(super) file_handles: Arc<RwLock<BTreeMap<u8, Resource>>>
 }
 
 impl Default for ProcessData {
     fn default() -> Self {
+        let mut file_handles = BTreeMap::new();
+
+        // stdin, stdout, stderr
+        file_handles.insert(0, Resource::Console(StdIO::Stdin));
+        file_handles.insert(1, Resource::Console(StdIO::Stdout));
+        file_handles.insert(2, Resource::Console(StdIO::Stderr));
+
         Self {
             env: Arc::new(RwLock::new(BTreeMap::new())),
             stack_segment: None,
             max_stack_segment: None,
+            file_handles: Arc::new(RwLock::new(file_handles)),
         }
+
     }
 }
 
@@ -67,4 +78,11 @@ impl ProcessData {
             false
         }
     }
+
+    pub fn handle(&self, fd: u8) -> Option<Resource> {
+        self.file_handles.read().get(&fd).cloned()
+    }
+
+
+
 }

@@ -64,7 +64,7 @@ pub fn dispatcher(context: &mut ProcessContext) {
         // ret: arg0 as isize
         Syscall::Exit => { 
             /* FIXME: exit process with retcode */
-            context.set_rax(exit_process(&args, context))
+            // context.set_rax(exit_process(&args, context))
         },
         // pid: arg0 as u16 -> status: isize
         Syscall::WaitPid => {
@@ -80,7 +80,7 @@ pub fn dispatcher(context: &mut ProcessContext) {
         // None
         Syscall::ListApp => { 
             /* FIXME: list avaliable apps */
-            context.set_rax(list_app())
+            // context.set_rax(list_app())
         },
 
         // ----------------------------------------------------

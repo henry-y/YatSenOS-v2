@@ -1,4 +1,5 @@
 use alloc::string::String;
+use crate::{drivers::serial, drivers::input::try_pop_key};
 
 #[derive(Debug, Clone)]
 pub enum StdIO {
@@ -19,7 +20,12 @@ impl Resource {
             Resource::Console(stdio) => match stdio {
                 &StdIO::Stdin => {
                     // FIXME: just read from kernel input buffer
-                    Some(0)
+                    if let Some(k) = try_pop_key() {
+                        buf[0] = k;
+                        Some(1)
+                    } else {
+                        Some(0)
+                    }
                 }
                 _ => None,
             },

@@ -26,6 +26,15 @@ pub fn init_user_heap() -> Result<(), MapToError<Size4KiB>> {
     // FIXME: use elf::map_range to allocate & map
     //        frames (R/W/User Access)
 
+    elf::map_range_with_flag(
+        USER_HEAP_START as u64, 
+        USER_HEAP_PAGE as u64, 
+        mapper, 
+        frame_allocator,
+        PageTableFlags::PRESENT | PageTableFlags::WRITABLE 
+        | PageTableFlags::USER_ACCESSIBLE | PageTableFlags::NO_EXECUTE
+        );
+
     unsafe {
         USER_ALLOCATOR
             .lock()

@@ -80,6 +80,49 @@ pub fn map_range(
     Ok(Page::range(range_start, range_end))
 }
 
+pub fn map_range_with_flag(
+    addr: u64,
+    count: u64,
+    page_table: &mut impl Mapper<Size4KiB>,
+    frame_allocator: &mut impl FrameAllocator<Size4KiB>,
+    flag: PageTableFlags
+) -> Result<PageRange, MapToError<Size4KiB>> {
+    let range_start = Page::containing_address(VirtAddr::new(addr));
+    let range_end = range_start + count;
+
+    trace!(
+        "Page Range: {:?}({})",
+        Page::range(range_start, range_end),
+        count
+    );
+
+    // default flags for stack
+    let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | flag;
+
+    for page in Page::range(range_start, range_end) {
+        let frame = frame_allocator
+            .allocate_frame()
+            .ok_or(MapToError::FrameAllocationFailed)?;
+        unsafe {
+            page_table
+                .map_to(page, frame, flags, frame_allocator)?
+                .flush();
+        }
+    }
+
+    trace!(
+        "Map hint: {:#x} -> {:#x}",
+        addr,
+        page_table
+            .translate_page(range_start)
+            .unwrap()
+            .start_address()
+    );
+
+    Ok(Page::range(range_start, range_end))
+}
+
+
 /// Load & Map ELF file
 ///
 /// load segments in ELF file to new frames and set page table
