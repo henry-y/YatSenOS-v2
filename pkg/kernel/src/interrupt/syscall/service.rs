@@ -9,18 +9,21 @@ pub fn spawn_process(args: &SyscallArgs) -> usize {
     // FIXME: get app name by args
     //       - core::str::from_utf8_unchecked
     //       - core::slice::
-    let app_name = core::str::from_utf8_unchecked(
-        core::slice::from_raw_parts(
-            args.arg0,
-            args.arg1
-        )
-    );
+    unsafe {
+        let app_name = core::str::from_utf8_unchecked(
+            core::slice::from_raw_parts(
+                args.arg0 as *const u8,
+                args.arg1
+            )
+        );
+    }
     // FIXME: spawn the process by name
-    let pid = crate::proc::spawn(app_name);
+    //let pid = crate::proc::spawn(app_name);
+    
     // FIXME: handle spawn error, return 0 if failed
     // FIXME: return pid as usize
 
-    pid
+    0
 }
 
 pub fn sys_write(args: &SyscallArgs) -> usize {
@@ -82,12 +85,7 @@ pub fn sys_deallocate(args: &SyscallArgs) {
 }
 
 pub fn sys_waitpid(args: &SyscallArgs) -> usize {
-    let pid = ProcessId::new(args.arg0);
-    let retcode = proc::wait_pid(pid);
-    match retcode {
-        Some(retcode) => retcode,
-        _ => 0
-    }
+    0
 }
 
 pub fn list_app() -> usize {
