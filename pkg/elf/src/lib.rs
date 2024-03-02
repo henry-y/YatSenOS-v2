@@ -104,6 +104,7 @@ pub fn load_elf(
             &segment,
             page_table,
             frame_allocator,
+            false
         )?
     }
 
@@ -113,12 +114,13 @@ pub fn load_elf(
 /// Load & Map ELF segment
 ///
 /// load segment to new frame and set page table
-fn load_segment(
+pub fn load_segment(
     file_buf: *const u8,
     physical_offset: u64,
     segment: &program::ProgramHeader,
     page_table: &mut impl Mapper<Size4KiB>,
     frame_allocator: &mut impl FrameAllocator<Size4KiB>,
+    user_access: bool,
 ) -> Result<(), MapToError<Size4KiB>> {
     trace!("Loading & mapping segment: {:#x?}", segment);
 
@@ -137,6 +139,10 @@ fn load_segment(
     }
     if segment_flags.is_write() {
         page_table_flags |= PageTableFlags::WRITABLE;
+    }
+
+    if user_access {
+        page_table_flags |= PageTableFlags::USER_ACCESSIBLE;
     }
 
     trace!("Segment page table flag: {:?}", page_table_flags);

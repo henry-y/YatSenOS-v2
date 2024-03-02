@@ -41,21 +41,42 @@ pub fn dispatcher(context: &mut ProcessContext) {
 
     match args.syscall {
         // fd: arg0 as u8, buf: &[u8] (ptr: arg1 as *const u8, len: arg2)
-        Syscall::Read => { /* FIXME: read from fd & return length */},
+        Syscall::Read => { 
+            /* FIXME: read from fd & return length */
+            context.set_rax(sys_read(&args))
+        },
         // fd: arg0 as u8, buf: &[u8] (ptr: arg1 as *const u8, len: arg2)
-        Syscall::Write => { /* FIXME: write to fd & return length */},
+        Syscall::Write => { 
+            /* FIXME: write to fd & return length */
+            context.set_rax(sys_write(&args))
+        },
 
         // path: &str (ptr: arg0 as *const u8, len: arg1) -> pid: u16
-        Syscall::Spawn => { /* FIXME: spawn process from name */},
+        Syscall::Spawn => { 
+            /* FIXME: spawn process from name */
+            context.set_rax(spawn_process(&args))
+        },
         // ret: arg0 as isize
-        Syscall::Exit => { /* FIXME: exit process with retcode */},
+        Syscall::Exit => { 
+            /* FIXME: exit process with retcode */
+            context.set_rax(exit_process(&args, context))
+        },
         // pid: arg0 as u16 -> status: isize
-        Syscall::WaitPid => { /* FIXME: check if the process is running or get retcode */},
+        Syscall::WaitPid => {
+            /* FIXME: check if the process is running or get retcode */
+            context.set_rax(sys_waitpid(&args))
+        },
 
         // None
-        Syscall::Stat => { /* FIXME: list processes */ },
+        Syscall::Stat => { 
+            /* FIXME: list processes */ 
+            context.set_rax(list_process())
+        },
         // None
-        Syscall::ListApp => { /* FIXME: list avaliable apps */},
+        Syscall::ListApp => { 
+            /* FIXME: list avaliable apps */
+            context.set_rax(list_app())
+        },
 
         // ----------------------------------------------------
         // NOTE: following syscall examples are implemented

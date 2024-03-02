@@ -4,7 +4,7 @@ use crate::memory::{
     allocator::{ALLOCATOR, HEAP_SIZE},
     get_frame_alloc_for_sure, PAGE_SIZE,
 };
-use alloc::collections::BTreeMap;
+use alloc::{collections::BTreeMap, sync::Weak};
 use alloc::{collections::VecDeque, format, sync::Arc};
 use bitflags::Flags;
 use spin::{Mutex, RwLock};
@@ -56,6 +56,44 @@ impl ProcessManager {
 
     pub fn app_list(&self) -> Option<boot::AppListRef> {
         self.app_list
+    }
+
+    pub fn spawn(
+        &self,
+        elf: &ElfFile,
+        name: String,
+        parent: Option<Weak<Process>>,
+        proc_data: Option<ProcessData>,
+    ) -> ProcessId {
+        
+        let kproc = self.get_proc(&KERNEL_PID).unwrap();
+        let page_table = kproc.read().clone_page_table();
+        let proc = Process::new(name, parent, page_table, proc_data);
+        let pid = proc.pid();
+
+        let mut inner = proc.write();
+        
+        // FIXME: load elf to process pagetable
+        inner.load_elf(elf).expect("load_elf error");
+        
+        let entry = elf.header.pt2.entry_point();
+        // FIXME: alloc new stack for process
+        let stack_top = proc.alloc_init_stack();
+
+        inner.set_user_init_stack(stack_top, VirtAddr::new(entry));
+        
+        // FIXME: mark process as ready
+        inner.pause();
+
+        drop(inner);
+    
+        trace!("New {:#?}", &proc);
+    
+        // FIXME: something like kernel thread
+        self.add_proc(pid, proc);
+        self.push_ready(pid);
+
+        pid
     }
 
     #[inline]

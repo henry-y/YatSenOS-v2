@@ -8,12 +8,19 @@ use super::SyscallArgs;
 pub fn spawn_process(args: &SyscallArgs) -> usize {
     // FIXME: get app name by args
     //       - core::str::from_utf8_unchecked
-    //       - core::slice::from_raw_parts
+    //       - core::slice::
+    let app_name = core::str::from_utf8_unchecked(
+        core::slice::from_raw_parts(
+            args.arg0,
+            args.arg1
+        )
+    );
     // FIXME: spawn the process by name
+    let pid = crate::proc::spawn(app_name);
     // FIXME: handle spawn error, return 0 if failed
     // FIXME: return pid as usize
 
-    0
+    pid
 }
 
 pub fn sys_write(args: &SyscallArgs) -> usize {
@@ -35,8 +42,10 @@ pub fn exit_process(args: &SyscallArgs, context: &mut ProcessContext) {
     // FIXME: exit process with retcode
 }
 
-pub fn list_process() {
+pub fn list_process() -> usize {
     // FIXME: list all processes
+    crate::proc::print_process_list();
+    0
 }
 
 pub fn sys_allocate(args: &SyscallArgs) -> usize {
@@ -70,4 +79,18 @@ pub fn sys_deallocate(args: &SyscallArgs) {
             .lock()
             .deallocate(core::ptr::NonNull::new_unchecked(ptr), *layout);
     }
+}
+
+pub fn sys_waitpid(args: &SyscallArgs) -> usize {
+    let pid = ProcessId::new(args.arg0);
+    let retcode = proc::wait_pid(pid);
+    match retcode {
+        Some(retcode) => retcode,
+        _ => 0
+    }
+}
+
+pub fn list_app() -> usize {
+    crate::proc::list_app();
+    0
 }

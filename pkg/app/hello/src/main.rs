@@ -6,8 +6,8 @@ use lib::*;
 extern crate lib;
 
 fn main() -> usize {
-    println!("Hello, world!!!");
-
+    // println!("Hello, world!!!");
+    loop {}
     233
 }
 

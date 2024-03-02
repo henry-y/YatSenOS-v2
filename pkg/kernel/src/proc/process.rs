@@ -159,6 +159,10 @@ impl ProcessInner {
         self.context.init_stack_frame(entry, stack_top)
     }
 
+    pub fn set_user_init_stack(&mut self, stack_top: VirtAddr, entry: VirtAddr) {
+        self.context.init_user_stack_frame(entry, stack_top)
+    }
+
     pub fn update_stack_frame(&mut self, visit_addr: VirtAddr) {
         let now_begin = self.stack_segment.unwrap().start.start_address();
         let visit_page = Page::<Size4KiB>::containing_address(visit_addr);
@@ -221,6 +225,33 @@ impl ProcessInner {
         drop(self.proc_data.take());
         trace!("Process {} is dead., status: {:?}", self.name(), self.status);
     }
+
+    /// load elf to process pagetable
+    pub fn load_elf(&mut self, elf: &ElfFile) -> Result<(), MapToError<Size4KiB>> {
+        let file_buf = elf.input.as_ptr();
+    
+        info!("Loading ELF file... @ {:#x}", file_buf as u64);
+    
+        let frame_allocator = &mut *get_frame_alloc_for_sure();
+
+        for segment in elf.program_iter() {
+            if segment.get_type().unwrap() != program::Type::Load {
+                continue;
+            }
+        
+            elf::load_segment(
+                file_buf,
+                0xFFFF800000000000,
+                &segment,
+                &mut self.page_table.as_ref().unwrap().mapper(),
+                frame_allocator,
+                true
+            )?
+        }
+    
+        Ok(())
+    }
+
 }
 
 impl core::ops::Deref for Process {

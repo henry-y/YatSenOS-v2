@@ -7,7 +7,7 @@ mod process;
 mod processor;
 
 use crate::alloc::string::ToString;
-use alloc::vec::Vec;
+use alloc::{sync::Arc, vec::Vec};
 use boot::BootInfo;
 use manager::*;
 use paging::*;
@@ -21,6 +21,8 @@ pub use pid::ProcessId;
 
 use x86_64::structures::idt::PageFaultErrorCode;
 use x86_64::VirtAddr;
+
+use xmas_elf::{program, ElfFile};
 
 // 0xffff_ff00_0000_0000 is the kernel's address space
 pub const STACK_MAX: u64 = 0x0000_4000_0000_0000;
@@ -85,12 +87,12 @@ pub fn switch(context: &mut ProcessContext) {
     });
 }
 
-pub fn spawn_kernel_thread(entry: fn() -> !, name: String, data: Option<ProcessData>) -> ProcessId {
-    x86_64::instructions::interrupts::without_interrupts(|| {
-        let entry = VirtAddr::new(entry as usize as u64);
-        get_process_manager().spawn_kernel_thread(entry, name, data)
-    })
-}
+// pub fn spawn_kernel_thread(entry: fn() -> !, name: String, data: Option<ProcessData>) -> ProcessId {
+//     x86_64::instructions::interrupts::without_interrupts(|| {
+//         let entry = VirtAddr::new(entry as usize as u64);
+//         get_process_manager().spawn_kernel_thread(entry, name, data)
+//     })
+// }
 
 pub fn print_process_list() {
     x86_64::instructions::interrupts::without_interrupts(|| {
@@ -112,7 +114,7 @@ pub fn env(key: &str) -> Option<String> {
     })
 }
 
-pub fn wait(pid: ProcessId) -> Option<isize> {
+pub fn wait_pid(pid: ProcessId) -> Option<isize> {
     x86_64::instructions::interrupts::without_interrupts(|| {
         get_process_manager().get_exit_code(pid)
     })
@@ -153,4 +155,31 @@ pub fn list_app() {
 
         println!("[+] App list: {}", apps);
     });
+}
+
+pub fn spawn(name: &str) -> Option<ProcessId> {
+
+    // info!("into spawn");
+
+    let app = x86_64::instructions::interrupts::without_interrupts(|| {
+        let app_list = get_process_manager().app_list()?;
+        app_list.iter().find(|&app| app.name.eq(name))
+    })?;
+    
+
+    elf_spawn(name.to_string(), &app.elf)
+}
+
+pub fn elf_spawn(name: String, elf: &ElfFile) -> Option<ProcessId> {
+    let pid = x86_64::instructions::interrupts::without_interrupts(|| {
+        let manager = get_process_manager();
+        let process_name = name.to_lowercase();
+        let parent = Arc::downgrade(&manager.current());
+        let pid = manager.spawn(elf, name, Some(parent), None);
+
+        debug!("Spawned process: {}#{}", process_name, pid);
+        pid
+    });
+
+    Some(pid)
 }
