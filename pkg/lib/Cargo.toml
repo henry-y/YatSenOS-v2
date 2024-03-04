@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 syscall_def = { package = "ysos_syscall", path = "../syscall" }
+# ysos = { package = "ysos_kernel", path = "../kernel" }

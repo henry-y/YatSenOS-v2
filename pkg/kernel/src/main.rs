@@ -24,5 +24,6 @@ pub fn spawn_init() -> proc::ProcessId {
     println!("\x1b[1;1H\x1b[2J");
 
     proc::list_app();
-    proc::spawn("hello").unwrap()
+    // proc::spawn("hello").unwrap();
+    proc::spawn("test").unwrap()
 }

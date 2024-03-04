@@ -68,11 +68,11 @@ impl ProcessData {
         // check if the address is in the stack segment
         // info!("stack testing...");
         if let Some(stack) = &self.max_stack_segment {
-            // trace!("testing is_on_stack: {:#x}, {:#x}, addr is {:#x}\n, compare result is {} {}", stack.start.start_address(), 
-            //     stack.end.start_address(), addr,
-            //     (stack.start.start_address() <= addr),
-            //      (addr < stack.end.start_address())
-            // );
+            trace!("testing is_on_stack: {:#x}, {:#x}, addr is {:#x}\n, compare result is {} {}", stack.start.start_address(), 
+                stack.end.start_address(), addr,
+                (stack.start.start_address() <= addr),
+                 (addr < stack.end.start_address())
+            );
             stack.start.start_address() <= addr && addr < stack.end.start_address()
         } else {
             false

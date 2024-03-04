@@ -1,6 +1,7 @@
 use crate::*;
 use alloc::string::{String, ToString};
 use alloc::vec;
+// use ysos::logger;
 
 pub struct Stdin;
 pub struct Stdout;
@@ -14,8 +15,11 @@ impl Stdin {
     pub fn read_char(&self) -> Option<char> {
         let mut buf = vec![0; 4];
         // TODO: utf-8 support ?
-
+        Stdout.write("begin read_char \n");
         if let Some(bytes) = sys_read(0, &mut buf) {
+            Stdout.write("get bytes");
+            Stdout.write(&bytes.to_string());
+            Stdout.write("\n");
             if bytes > 0 {
                 return Some(buf[0] as char);
             }
@@ -29,10 +33,13 @@ impl Stdin {
         let mut string = String::new();
         // FIXME: read from input buffer
         //       - maybe char by char?
-        
 
         loop {
+            // Stdout.write("begin read_line loop \n");
             if let Some(input) = self.read_char() {
+                Stdout.write("input: \n ");
+                Stdout.write(&input.to_string());
+                Stdout.write("\n");
                 match input {
                     '\n' => { Stdout.write("\n"); break; },
                     '\x08' => {
@@ -52,6 +59,7 @@ impl Stdin {
                         string.push('\x04');
                         break;
                     }
+                    '\x00'..='\x1F' => {},
                     _ => {
                         string.push(input);
                         Stdout.write(&input.to_string());

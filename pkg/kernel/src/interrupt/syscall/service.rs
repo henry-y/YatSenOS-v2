@@ -44,7 +44,7 @@ pub fn sys_write(args: &SyscallArgs) -> usize {
         let fd = crate::proc::handle(fd as u8);
 
 
-        if let Some(res) = fd {       
+        if let Some(res) = fd {
             let buf: &[u8] = core::slice::from_raw_parts(buf as *mut u8, len);
             if let Some(size) = res.write(buf) {
                 size

@@ -16,14 +16,18 @@ pub enum Resource {
 
 impl Resource {
     pub fn read(&self, buf: &mut [u8]) -> Option<usize> {
+        // info!("reading begin ...");
         match self {
             Resource::Console(stdio) => match stdio {
                 &StdIO::Stdin => {
                     // FIXME: just read from kernel input buffer
+                    // info!("into stdin");
                     if let Some(k) = try_pop_key() {
                         buf[0] = k;
+                        // info!("reading end ... get key: {}", k);
                         Some(1)
                     } else {
+                        // info!("reading end ...");
                         Some(0)
                     }
                 }
