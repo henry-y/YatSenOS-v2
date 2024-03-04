@@ -87,7 +87,8 @@ fn efi_main(image: uefi::Handle, mut system_table: SystemTable<Boot>) -> Status 
         &elf, 
         config.physical_memory_offset, 
         &mut page_table, 
-        &mut frame_allocator).expect("load elf error");
+        &mut frame_allocator,
+        false).expect("load elf error");
 
     // FIXME: map kernel stack
     // addressed_by_henry_y!!!: stack addr is an virtual address, so it need to map to page_table

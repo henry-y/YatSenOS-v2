@@ -1,9 +1,9 @@
 pub mod context;
 mod data;
-mod manager;
+pub mod manager;
 mod paging;
 mod pid;
-mod process;
+pub mod process;
 mod processor;
 
 use crate::alloc::string::ToString;
@@ -123,14 +123,24 @@ pub fn wait_pid(pid: ProcessId) -> Option<isize> {
     })
 }
 
-pub fn process_exit(ret: isize) -> ! {
-    x86_64::instructions::interrupts::without_interrupts(|| {
-        get_process_manager().kill_current(ret);
-    });
+// pub fn process_exit(ret: isize) -> ! {
+//     x86_64::instructions::interrupts::without_interrupts(|| {
+//         get_process_manager().kill_current(ret);
+//     });
 
-    loop {
-        x86_64::instructions::hlt();
-    }
+//     loop {
+//         x86_64::instructions::hlt();
+//     }
+// }
+
+
+
+pub fn exit(ret: isize, context: &mut ProcessContext) {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let manager = get_process_manager();
+        manager.kill_self(ret); // FIXME: implement this for ProcessManager
+        manager.switch_next(context);
+    })
 }
 
 pub fn handle_page_fault(addr: VirtAddr, err_code: PageFaultErrorCode) -> bool {
@@ -191,5 +201,13 @@ pub fn elf_spawn(name: String, elf: &ElfFile) -> Option<ProcessId> {
 pub fn handle(fd: u8) -> Option<Resource> {
     x86_64::instructions::interrupts::without_interrupts(|| {
         get_process_manager().current().read().handle(fd)
+    })
+}
+
+#[inline]
+pub fn still_alive(pid: ProcessId) -> bool {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        // check if the process is still alive
+        get_process_manager().still_alive(pid)
     })
 }

@@ -26,20 +26,26 @@ pub fn init_user_heap() -> Result<(), MapToError<Size4KiB>> {
     // FIXME: use elf::map_range to allocate & map
     //        frames (R/W/User Access)
 
-    elf::map_range_with_flag(
+    info!("begin mapping range with flag ... ");
+
+    let _tmp = elf::map_range(
         USER_HEAP_START as u64, 
         USER_HEAP_PAGE as u64, 
         mapper, 
         frame_allocator,
-        PageTableFlags::PRESENT | PageTableFlags::WRITABLE 
-        | PageTableFlags::USER_ACCESSIBLE | PageTableFlags::NO_EXECUTE
-        );
+        true
+        )?;
+
+
+    info!("begin allocator...");
 
     unsafe {
         USER_ALLOCATOR
             .lock()
             .init(USER_HEAP_START as *mut u8, USER_HEAP_SIZE);
     }
+
+    info!("init user heap success");
 
     Ok(())
 }

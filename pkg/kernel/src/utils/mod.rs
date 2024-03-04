@@ -8,6 +8,7 @@ pub mod func;
 pub mod logger;
 pub mod resource;
 
+pub use super::proc::manager::get_process_manager;
 pub use super::*;
 pub use macros::*;
 pub use regs::*;
@@ -51,7 +52,7 @@ __  __      __  _____            ____  _____
 //     wait(pid);
 // }
 
-fn wait(pid: ProcessId) {
+pub fn wait(pid: ProcessId) {
     loop {
         // FIXME: try to get the status of the process
         let status = crate::proc::wait_pid(pid);

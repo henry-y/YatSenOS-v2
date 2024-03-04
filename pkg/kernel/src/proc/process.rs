@@ -104,10 +104,17 @@ impl Process {
             STACK_MAX - (pid-1) as u64 * 0x1_0000_0000);
         let frame_allocator = 
             &mut *get_frame_alloc_for_sure();
+        
+        trace!("get_frame_allocator succ...");
+
         let page_range = 
             elf::map_range(vaddr, STACK_DEF_PAGE, 
             &mut self.read().page_table.as_ref().unwrap().mapper(), 
-            frame_allocator);
+            frame_allocator, 
+            false);
+
+        trace!("mapper succ...");
+        
         let rt_addr = page_range.unwrap();
 
         self.write().set_stack(rt_addr.start.start_address(), STACK_DEF_PAGE);
@@ -163,24 +170,25 @@ impl ProcessInner {
         self.context.init_user_stack_frame(entry, stack_top)
     }
 
-    pub fn update_stack_frame(&mut self, visit_addr: VirtAddr) {
+    pub fn update_stack_frame(&mut self, visit_addr: VirtAddr, user_access: bool) {
         let now_begin = self.stack_segment.unwrap().start.start_address();
         let visit_page = Page::<Size4KiB>::containing_address(visit_addr);
         let top_page = Page::<Size4KiB>::containing_address(now_begin);
         let page_count = top_page - visit_page;
-        self.expand(visit_page.start_address(), page_count);
+        self.expand(visit_page.start_address(), page_count, user_access);
 
         self.stack_segment = Some(Page::range(visit_page, self.stack_segment.unwrap().end));
     }
 
-    fn expand(&self, start: VirtAddr, count: u64) {
+    fn expand(&self, start: VirtAddr, count: u64, user_access: bool) {
         let frame_allocator = 
             &mut *get_frame_alloc_for_sure();
         
         elf::map_range(start.as_u64(), 
             count, 
             &mut self.page_table.as_ref().unwrap().mapper(), 
-            frame_allocator).expect("map range err");
+            frame_allocator,
+            user_access).expect("map range err");
     }
 
     /// Save the process's context
@@ -228,29 +236,27 @@ impl ProcessInner {
 
     /// load elf to process pagetable
     pub fn load_elf(&mut self, elf: &ElfFile) -> Result<(), MapToError<Size4KiB>> {
-        let file_buf = elf.input.as_ptr();
-    
-        info!("Loading ELF file... @ {:#x}", file_buf as u64);
-    
-        let frame_allocator = &mut *get_frame_alloc_for_sure();
 
-        for segment in elf.program_iter() {
-            if segment.get_type().unwrap() != program::Type::Load {
-                continue;
-            }
+        let frame_allocator = &mut *get_frame_alloc_for_sure();
+        let mut mapper = self.page_table.as_ref().unwrap().mapper();
         
-            elf::load_segment(
-                file_buf,
-                0xFFFF800000000000,
-                &segment,
-                &mut self.page_table.as_ref().unwrap().mapper(),
-                frame_allocator,
-                true
-            )?
-        }
+        let code_segments = elf::load_elf(
+            elf,
+            *PHYSICAL_OFFSET.get().unwrap(),
+            &mut mapper,
+            frame_allocator,
+            true,
+        ).unwrap();
+        
+        let stack_segment = elf::map_range(STACK_INIT_BOT,
+            STACK_DEF_PAGE, &mut mapper, frame_allocator, true).unwrap();
     
+        self.set_stack(stack_segment.start.start_address(), STACK_DEF_PAGE);
+        self.set_max_stack(VirtAddr::new(STACK_INIT_TOP - 0x1_0000_0000), 
+            VirtAddr::new(STACK_INIT_TOP+8));
         Ok(())
     }
+    
 
 }
 

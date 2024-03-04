@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use boot::{MemoryMap, MemoryType};
 use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB};
 use x86_64::PhysAddr;
@@ -15,6 +16,7 @@ pub struct BootInfoFrameAllocator {
     size: usize,
     used: usize,
     frames: BootInfoFrameIter,
+    recycled: Vec<u32>
 }
 
 impl BootInfoFrameAllocator {
@@ -28,6 +30,7 @@ impl BootInfoFrameAllocator {
             size,
             frames: create_frame_iter(memory_map),
             used: 0,
+            recycled: Vec::new(),
         }
     }
 
@@ -38,18 +41,32 @@ impl BootInfoFrameAllocator {
     pub fn frames_total(&self) -> usize {
         self.size
     }
+
+    pub fn recycle_size(&self) -> usize {
+        self.recycled.len()
+    }
 }
 
 unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
     fn allocate_frame(&mut self) -> Option<PhysFrame> {
-        self.used += 1;
-        self.frames.next()
+        if self.recycle_size() == 0 {
+            self.used += 1;
+            self.frames.next()
+        } else {
+            let key = self.recycled.pop();
+            let key = PhysFrame::from_start_address(PhysAddr::new(key.unwrap() as u64))
+                .expect("recycle addr not aligned");
+            Some(key)
+        }
     }
 }
 
 impl FrameDeallocator<Size4KiB> for BootInfoFrameAllocator {
-    unsafe fn deallocate_frame(&mut self, _frame: PhysFrame) {
+    unsafe fn deallocate_frame(&mut self, frame: PhysFrame) {
         // TODO: deallocate frame (not for lab 2)
+        let key = frame.start_address().as_u64();
+        assert!(key <= u32::MAX as u64);
+        self.recycled.push(key as u32);
     }
 }
 

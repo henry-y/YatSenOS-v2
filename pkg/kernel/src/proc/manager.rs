@@ -73,22 +73,25 @@ impl ProcessManager {
 
         let mut inner = proc.write();
         
+        trace!("begin load elf...");
+
         // FIXME: load elf to process pagetable
         inner.load_elf(elf).expect("load_elf error");
         
-        let entry = elf.header.pt2.entry_point();
-        // FIXME: alloc new stack for process
-        let stack_top = proc.alloc_init_stack();
+        trace!("load elf succ...");
 
-        inner.set_user_init_stack(stack_top, VirtAddr::new(entry));
-        
+        // FIXME: alloc new stack for process
+        inner.set_user_init_stack( 
+            VirtAddr::new(STACK_INIT_TOP),
+            VirtAddr::new(elf.header.pt2.entry_point())
+        );
         // FIXME: mark process as ready
         inner.pause();
 
         drop(inner);
     
         trace!("New {:#?}", &proc);
-    
+
         // FIXME: something like kernel thread
         self.add_proc(pid, proc);
         self.push_ready(pid);
@@ -210,6 +213,10 @@ impl ProcessManager {
         pid
     }
 
+    pub fn kill_self(&self, ret: isize) {
+        self.kill(processor::get_pid(), ret);
+    }
+
     pub fn kill_current(&self, ret: isize) {
         self.kill(processor::get_pid(), ret);
     }
@@ -227,7 +234,8 @@ impl ProcessManager {
             return false;
 
         } else {
-            self.current().write().update_stack_frame(addr);
+            self.current().write().update_stack_frame(addr, 
+                self.current().pid() != ProcessId(0));
         }
         true
     }
@@ -272,4 +280,13 @@ impl ProcessManager {
 
         print!("{}", output);
     }
+
+    pub fn still_alive(&self, pid: ProcessId) -> bool {
+        let proc = get_process_manager().get_proc(&pid);
+        if proc.is_none() {
+            return false;
+        }
+        proc.unwrap().read().status() != ProgramStatus::Dead
+    }
+
 }

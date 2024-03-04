@@ -3,6 +3,8 @@
 #![feature(panic_info_message)]
 #![feature(alloc_error_handler)]
 
+pub mod syscall;
+
 #[macro_use]
 pub mod macros;
 
@@ -14,7 +16,6 @@ pub mod io;
 pub mod allocator;
 pub extern crate alloc;
 
-mod syscall;
 
 use core::fmt::*;
 

@@ -36,9 +36,9 @@ fn huge_stack() {
     }
 }
 
-pub fn stack_test() -> ! {
-    huge_stack();
-    trace!("pass huge stack test");
+// pub fn stack_test() -> ! {
+//     huge_stack();
+//     trace!("pass huge stack test");
     
-    crate::proc::process_exit(0)
-}
+//     crate::proc::process_exit(0)
+// }
