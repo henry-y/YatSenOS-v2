@@ -28,7 +28,7 @@ pub fn init_user_heap() -> Result<(), MapToError<Size4KiB>> {
 
     info!("begin mapping range with flag ... ");
 
-    let _tmp = elf::map_range(
+    let tmp = elf::map_range(
         USER_HEAP_START as u64, 
         USER_HEAP_PAGE as u64, 
         mapper, 
@@ -37,7 +37,7 @@ pub fn init_user_heap() -> Result<(), MapToError<Size4KiB>> {
         )?;
 
 
-    info!("begin allocator...");
+    info!("user heap: {:#?}", tmp);
 
     unsafe {
         USER_ALLOCATOR

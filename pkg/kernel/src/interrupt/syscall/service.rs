@@ -31,11 +31,19 @@ pub fn spawn_process(args: &SyscallArgs) -> usize {
     // FIXME: return pid as usize
 }
 
+#[no_mangle]
+#[inline(never)]
 pub fn sys_write(args: &SyscallArgs) -> usize {
     // FIXME: get handle by fd
     // FIXME: handle read from fd & return length
     //       - core::slice::from_raw_parts
     // FIXME: return 0 if failed
+
+    // debug!("sys_write: {:?}", args);
+    // let buf: &[u8] = unsafe { core::slice::from_raw_parts(args.arg1 as *mut u8, args.arg2) };
+
+    // print!("[W] {}", unsafe {  core::str::from_utf8_unchecked(buf) });
+
     unsafe {
         let fd = args.arg0;
         let buf = args.arg1;
@@ -55,6 +63,8 @@ pub fn sys_write(args: &SyscallArgs) -> usize {
             0
         }
     }
+
+    // buf.len()
 }
 
 pub fn sys_read(args: &SyscallArgs) -> usize {
@@ -86,6 +96,8 @@ pub fn sys_list_process() -> usize {
 pub fn sys_allocate(args: &SyscallArgs) -> usize {
     let layout = unsafe { (args.arg0 as *const Layout).as_ref().unwrap() };
 
+    //info!("Allocate: {:?}", layout);
+
     if layout.size() == 0 {
         return 0;
     }
@@ -115,6 +127,7 @@ pub fn sys_deallocate(args: &SyscallArgs) {
             .deallocate(core::ptr::NonNull::new_unchecked(ptr), *layout);
     }
 }
+
 
 pub fn sys_waitpid(args: &SyscallArgs) -> usize {
     let pid = ProcessId(args.arg0 as u16);

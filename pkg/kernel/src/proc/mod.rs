@@ -123,17 +123,15 @@ pub fn wait_pid(pid: ProcessId) -> Option<isize> {
     })
 }
 
-// pub fn process_exit(ret: isize) -> ! {
-//     x86_64::instructions::interrupts::without_interrupts(|| {
-//         get_process_manager().kill_current(ret);
-//     });
+pub fn process_exit(ret: isize) -> ! {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        get_process_manager().kill_current(ret);
+    });
 
-//     loop {
-//         x86_64::instructions::hlt();
-//     }
-// }
-
-
+    loop {
+        x86_64::instructions::hlt();
+    }
+}
 
 pub fn exit(ret: isize, context: &mut ProcessContext) {
     x86_64::instructions::interrupts::without_interrupts(|| {

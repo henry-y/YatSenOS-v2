@@ -20,9 +20,9 @@ fn receive() {
     let mut uart = get_serial_for_sure();
     let c = uart.receive();
     drop(uart);
-    if c != None {
-        push_key(c.unwrap() as u8);
-        print!("{}", c.unwrap() as char);
+    if let Some(c) = c {
+        push_key(c);
+        //print!("{}", c.unwrap() as char);
         // trace!("receive: {}", c.unwrap());
     }
     // if let Some(c) = get_serial_for_sure().receive() {

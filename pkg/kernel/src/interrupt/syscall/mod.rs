@@ -44,6 +44,16 @@ pub fn dispatcher(context: &mut ProcessContext) {
         context.regs.rdx,
     );
 
+    // match args.syscall  {
+    //     Syscall::Read => {},
+    //     _ => {
+    //         info!("{}", args);
+    //     }
+    // }
+
+    // debug!("Syscall: {:#?}", context);
+    //debug!("Syscall: {:#?} at {:?}", context, core::ptr::addr_of!(context));
+
     match args.syscall {
         // fd: arg0 as u8, buf: &[u8] (ptr: arg1 as *const u8, len: arg2)
         Syscall::Read => { 
@@ -94,6 +104,8 @@ pub fn dispatcher(context: &mut ProcessContext) {
         // Unknown
         Syscall::Unknown => warn!("Unhandled syscall: {:x?}", context.regs.rax),
     }
+
+    //debug!("After Syscall: {:#?} at {:?}", context, core::ptr::addr_of!(context));
 }
 
 impl SyscallArgs {

@@ -33,6 +33,10 @@ fn main() -> isize {
     // calculate factorial
     let result = factorial(n);
 
+    println!("factorial succ...");
+    
+    //let result = 1;
+
     // print system status
     sys_stat();
 

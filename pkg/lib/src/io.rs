@@ -13,14 +13,15 @@ impl Stdin {
     }
 
     pub fn read_char(&self) -> Option<char> {
-        let mut buf = vec![0; 4];
+        let mut buf = [0; 4];
         // TODO: utf-8 support ?
-        Stdout.write("begin read_char \n");
+        // stdout().write("begin read_char \n");
         if let Some(bytes) = sys_read(0, &mut buf) {
-            Stdout.write("get bytes");
-            Stdout.write(&bytes.to_string());
-            Stdout.write("\n");
+            // stdout().write("get bytes");
+            // stdout().write(&bytes.to_string());
+            // stdout().write("\n");
             if bytes > 0 {
+                // crate::println!("bytes: {}", buf[0]);
                 return Some(buf[0] as char);
             }
         }
@@ -34,18 +35,31 @@ impl Stdin {
         // FIXME: read from input buffer
         //       - maybe char by char?
 
+
         loop {
-            // Stdout.write("begin read_line loop \n");
+            // stdout().write("begin read_line loop \n");
             if let Some(input) = self.read_char() {
-                Stdout.write("input: \n ");
-                Stdout.write(&input.to_string());
-                Stdout.write("\n");
+                // stdout().write("input: \n ");
+                // stdout().write(&input.to_string());
+                // stdout().write("\n");
+                // crate::print!("{}", input);
+                // crate::println!("input: {:x}", input as u16);
+                // if input as u16 == 0xd {
+                //     crate::println!("match enter succ .. ");
+                //     stdout().write("\n");
+                //     break;
+                // }
+                
                 match input {
-                    '\n' => { Stdout.write("\n"); break; },
+                    '\n' | '\r' => { 
+                        crate::println!("match enter succ .. ");
+                        stdout().write("\n"); 
+                        break; 
+                    },
                     '\x08' => {
                         if string.len() > 0 {
                             string.pop();
-                            Stdout.write("\x08 \x08");
+                            stdout().write("\x08 \x08");
                         }
                     },
                     '\x03' => {
@@ -62,11 +76,9 @@ impl Stdin {
                     '\x00'..='\x1F' => {},
                     _ => {
                         string.push(input);
-                        Stdout.write(&input.to_string());
+                        crate::print!("{}", input);
                     }
                 }
-
-
             }
         }
         // FIXME: handle backspace / enter...

@@ -185,33 +185,33 @@ impl ProcessManager {
 
     }
 
-    pub fn spawn_kernel_thread(
-        &self,
-        entry: VirtAddr,
-        name: String,
-        proc_data: Option<ProcessData>,
-    ) -> ProcessId {
-        let kproc = self.get_proc(&KERNEL_PID).unwrap();
-        let page_table = kproc.read().clone_page_table();
-        let proc = Process::new(name, Some(Arc::downgrade(&kproc)), page_table, proc_data);
+    // pub fn spawn_kernel_thread(
+    //     &self,
+    //     entry: VirtAddr,
+    //     name: String,
+    //     proc_data: Option<ProcessData>,
+    // ) -> ProcessId {
+    //     let kproc = self.get_proc(&KERNEL_PID).unwrap();
+    //     let page_table = kproc.read().clone_page_table();
+    //     let proc = Process::new(name, Some(Arc::downgrade(&kproc)), page_table, proc_data);
 
-        // alloc stack for the new process base on pid
-        let stack_top = proc.alloc_init_stack();
+    //     // alloc stack for the new process base on pid
+    //     let stack_top = proc.alloc_init_stack();
 
-        // FIXME: set the stack frame
-        let mut inner = proc.write();
-        inner.pause();
-        inner.set_init_stack(stack_top, entry);
-        drop(inner);
-        // FIXME: add to process map
-        let pid = proc.pid();
+    //     // FIXME: set the stack frame
+    //     let mut inner = proc.write();
+    //     inner.pause();
+    //     inner.set_init_stack(stack_top, entry);
+    //     drop(inner);
+    //     // FIXME: add to process map
+    //     let pid = proc.pid();
         
-        self.add_proc(pid, proc);
-        // FIXME: push to ready queue
-        self.push_ready(pid);
+    //     self.add_proc(pid, proc);
+    //     // FIXME: push to ready queue
+    //     self.push_ready(pid);
         
-        pid
-    }
+    //     pid
+    // }
 
     pub fn kill_self(&self, ret: isize) {
         self.kill(processor::get_pid(), ret);
@@ -223,6 +223,9 @@ impl ProcessManager {
 
     pub fn handle_page_fault(&self, addr: VirtAddr, err_code: PageFaultErrorCode) -> bool {
         // FIXME: handle page fault
+
+        debug!("Page fault: addr: {:#x}, err_code: {:?}", addr, err_code);
+
         if !self.current().read().is_on_stack(addr) || err_code.contains(PageFaultErrorCode::PROTECTION_VIOLATION) {
             
             if !self.current().read().is_on_stack(addr) {

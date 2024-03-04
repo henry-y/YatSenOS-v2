@@ -175,6 +175,11 @@ impl ProcessInner {
         let visit_page = Page::<Size4KiB>::containing_address(visit_addr);
         let top_page = Page::<Size4KiB>::containing_address(now_begin);
         let page_count = top_page - visit_page;
+
+        // debug!("Update stack frame: {:#x}, {:#x}, {:#x}", 
+        //     visit_page.start_address(), top_page.start_address(), 
+        //     page_count);
+
         self.expand(visit_page.start_address(), page_count, user_access);
 
         self.stack_segment = Some(Page::range(visit_page, self.stack_segment.unwrap().end));
@@ -183,7 +188,7 @@ impl ProcessInner {
     fn expand(&self, start: VirtAddr, count: u64, user_access: bool) {
         let frame_allocator = 
             &mut *get_frame_alloc_for_sure();
-        
+
         elf::map_range(start.as_u64(), 
             count, 
             &mut self.page_table.as_ref().unwrap().mapper(), 
