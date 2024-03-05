@@ -52,11 +52,12 @@ impl Stdin {
                 
                 match input {
                     '\n' | '\r' => { 
-                        crate::println!("match enter succ .. ");
+                        // crate::println!("match enter succ .. ");
                         stdout().write("\n"); 
                         break; 
                     },
-                    '\x08' => {
+                    '\x08' | '\x7f' => {
+                        // crate::println!("exec backspace .. ");
                         if string.len() > 0 {
                             string.pop();
                             stdout().write("\x08 \x08");

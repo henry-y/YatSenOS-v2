@@ -139,3 +139,7 @@ pub fn sys_list_app() -> usize {
     crate::proc::list_app();
     0
 }
+
+pub fn sys_list_dir(args: &SyscallArgs) {
+    
+}

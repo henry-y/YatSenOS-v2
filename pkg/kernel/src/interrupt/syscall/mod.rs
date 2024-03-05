@@ -56,6 +56,9 @@ pub fn dispatcher(context: &mut ProcessContext) {
 
     match args.syscall {
         // fd: arg0 as u8, buf: &[u8] (ptr: arg1 as *const u8, len: arg2)
+        Syscall::ListDir => {
+            sys_list_dir(&args);
+        },
         Syscall::Read => { 
             /* FIXME: read from fd & return length */
             context.set_rax(sys_read(&args))

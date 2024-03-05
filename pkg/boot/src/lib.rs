@@ -64,7 +64,7 @@ pub fn current_page_table() -> OffsetPageTable<'static> {
 }
 
 /// The entry point of kernel, set by BSP.
-static mut ENTRY: usize = 0;
+static mut ENTRY: isize = 0;
 
 /// Jump to ELF entry according to global variable `ENTRY`
 ///
@@ -83,7 +83,7 @@ pub unsafe fn jump_to_entry(bootinfo: *const BootInfo, stacktop: u64) -> ! {
 ///
 /// This function is unsafe because the caller must ensure that the kernel entry point is valid.
 #[inline(always)]
-pub unsafe fn set_entry(entry: usize) {
+pub unsafe fn set_entry(entry: isize) {
     ENTRY = entry;
 }
 

@@ -45,7 +45,7 @@ fn efi_main(image: uefi::Handle, mut system_table: SystemTable<Boot>) -> Status 
     };
 
     unsafe {
-        set_entry(elf.header.pt2.entry_point() as usize);
+        set_entry(elf.header.pt2.entry_point() as isize);
     }
 
     // 3. Load MemoryMap

@@ -72,3 +72,8 @@ pub fn sys_exit(code: isize) -> ! {
     syscall!(Syscall::Exit, code as u64);
     unreachable!("This process should be terminated by now.")
 }
+
+#[inline(always)]
+pub fn sys_list_dir(root: &str) {
+    syscall!(Syscall::ListDir, root.as_ptr() as u64, root.len() as u64);
+}
