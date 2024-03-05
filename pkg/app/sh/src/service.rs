@@ -26,7 +26,19 @@ pub fn cd(dir: &str, root_dir: &mut String) {
     lib::println!("cd");
 }
 
-pub fn exec(file: &str) -> u16 {
-    let ret = sys_spawn(file);
-    return ret;
+pub fn exec(path: &str)  {
+
+    let pid = sys_spawn(path);
+
+    if pid == 0 {
+        errln!("failed to spawn process: {}", path);
+        return;
+    }
+
+    let ret = sys_wait_pid(pid);
+
+    println!(
+        "[+] process exited with code {}",
+        ret    
+    );
 }

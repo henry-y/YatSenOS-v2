@@ -75,6 +75,8 @@ impl ProcessManager {
         
         trace!("begin load elf...");
 
+        trace!("the elf hd msg: {:#?}", elf.header);
+
         // FIXME: load elf to process pagetable
         inner.load_elf(elf).expect("load_elf error");
         

@@ -59,7 +59,7 @@ pub fn wait(pid: ProcessId) {
         // HINT: it's better to use the exit code
         
         // TODO:
-        if status.is_none() {
+        if status != -1 {
             x86_64::instructions::hlt();
         } else {
             break;

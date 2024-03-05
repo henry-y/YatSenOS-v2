@@ -117,9 +117,9 @@ pub fn env(key: &str) -> Option<String> {
     })
 }
 
-pub fn wait_pid(pid: ProcessId) -> Option<isize> {
+pub fn wait_pid(pid: ProcessId) -> isize {
     x86_64::instructions::interrupts::without_interrupts(|| {
-        get_process_manager().get_exit_code(pid)
+        get_process_manager().get_exit_code(pid).unwrap_or(-1)
     })
 }
 
@@ -177,6 +177,9 @@ pub fn spawn(name: &str) -> Option<ProcessId> {
         app_list.iter().find(|&app| app.name.eq(name))
     })?;
     
+
+    trace!("Spawning process: {}...", name);
+    trace!("elf hd: {:#?}", &app.elf.header);
 
     elf_spawn(name.to_string(), &app.elf)
 }

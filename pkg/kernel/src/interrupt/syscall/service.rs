@@ -131,7 +131,7 @@ pub fn sys_deallocate(args: &SyscallArgs) {
 
 pub fn sys_waitpid(args: &SyscallArgs) -> usize {
     let pid = ProcessId(args.arg0 as u16);
-    let ret = wait_pid(pid).unwrap();
+    let ret = wait_pid(pid);
     ret as usize
 }
 

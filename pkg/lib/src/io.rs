@@ -49,7 +49,6 @@ impl Stdin {
                 //     stdout().write("\n");
                 //     break;
                 // }
-                
                 match input {
                     '\n' | '\r' => { 
                         // crate::println!("match enter succ .. ");

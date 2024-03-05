@@ -16,12 +16,15 @@ use lib::io::stdin;
 use lib::{print, println};
 
 fn main() -> isize {
-    let mut root_dir = String::from("/APP/");
     println!("Welcome to YSOS Shell! Made by huang ye, student code 22336007");
+    let mut root_dir = String::from("/APP/");
+    println!("...");
     loop {
         print!("[{}]> ", root_dir);
         let input = stdin().read_line();
         let line: Vec<&str> = input.trim().split(' ').collect();
+
+        // println!("line is {}", input);
 
         match line[0] {
             "cat" => {
@@ -68,7 +71,7 @@ fn main() -> isize {
                     println!("Usage: exec <file>");
                     continue;
                 }
-                lib::println!("exec {}, ret code is {}", line[1], service::exec(line[1]));
+                service::exec(line[1]);
                 continue;
             },
             _ => {
@@ -79,3 +82,5 @@ fn main() -> isize {
 
     233
 }
+
+entry!(main);
