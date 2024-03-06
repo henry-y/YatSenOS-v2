@@ -11,9 +11,11 @@ boot::entry_point!(kernel_main);
 
 pub fn kernel_main(boot_info: &'static boot::BootInfo) -> ! {
     ysos::init(boot_info);
-    trace!("[+] begin list_app...");
-    crate::proc::list_app();
-    trace!("[+] list_app ok...");
+    println!("\x1B[2J\x1B[1;1H");
+    println!("clear success!");
+    // trace!("[+] begin list_app...");
+    // crate::proc::list_app();
+    // trace!("[+] list_app ok...");
     ysos::wait(spawn_init());
     ysos::proc::print_process_list();
     ysos::shutdown(boot_info);

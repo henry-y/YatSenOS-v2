@@ -22,23 +22,31 @@ const CONFIG_PATH: &str = "\\EFI\\BOOT\\boot.conf";
 fn efi_main(image: uefi::Handle, mut system_table: SystemTable<Boot>) -> Status {
     uefi_services::init(&mut system_table).expect("Failed to initialize utilities");
 
-    log::set_max_level(log::LevelFilter::Trace);
-    info!("Running UEFI bootloader...");
-
     let bs = system_table.boot_services();
 
     // 1. Load config
     let config = { 
-        /* FIXME: Load config file */         
+        /* FIXED: Load config file */         
         let mut file = open_file(bs, CONFIG_PATH);
         config::Config::parse(load_file(bs, &mut file))
     };
+
+    match config.log_level {
+        "trace" => log::set_max_level(log::LevelFilter::Trace),
+        "debug" => log::set_max_level(log::LevelFilter::Debug),
+        "info" => log::set_max_level(log::LevelFilter::Info),
+        "warn" => log::set_max_level(log::LevelFilter::Warn),
+        "error" => log::set_max_level(log::LevelFilter::Error),
+        _ => log::set_max_level(log::LevelFilter::Info),
+    }
+    // log::set_max_level(log::LevelFilter::Info);
+    info!("Running UEFI bootloader...");
 
     info!("Config: {:#x?}", config);
 
     // 2. Load ELF files
     let elf = { 
-        /* FIXME: Load kernel elf file */ 
+        /* FIXED: Load kernel elf file */ 
         let mut file = open_file(bs, "\\KERNEL.ELF");
         let buf = load_file(bs, &mut file);
         ElfFile::new(buf).expect("load elf_file error")
@@ -68,12 +76,12 @@ fn efi_main(image: uefi::Handle, mut system_table: SystemTable<Boot>) -> Status 
     // 4. Map ELF segments, kernel stack and physical memory to virtual memory
     let mut page_table = current_page_table();
 
-    // FIXME: root page table is readonly, disable write protect (Cr0)
+    // FIXED: root page table is readonly, disable write protect (Cr0)
     unsafe {
         Cr0::update(|f| f.remove(Cr0Flags::WRITE_PROTECT));
     }
 
-    // FIXME: map physical memory to specific virtual address offset
+    // FIXED: map physical memory to specific virtual address offset
     let mut frame_allocator = UEFIFrameAllocator(bs);
     elf::map_physical_memory(
         config.physical_memory_offset,
@@ -82,7 +90,7 @@ fn efi_main(image: uefi::Handle, mut system_table: SystemTable<Boot>) -> Status 
         &mut frame_allocator
     );
 
-    // FIXME: load and map the kernel elf file
+    // FIXED: load and map the kernel elf file
     elf::load_elf(
         &elf, 
         config.physical_memory_offset, 
@@ -90,7 +98,7 @@ fn efi_main(image: uefi::Handle, mut system_table: SystemTable<Boot>) -> Status 
         &mut frame_allocator,
         false).expect("load elf error");
 
-    // FIXME: map kernel stack
+    // FIXED: map kernel stack
     // addressed_by_henry_y!!!: stack addr is an virtual address, so it need to map to page_table
 
     elf::map_physical_memory(
@@ -100,7 +108,7 @@ fn efi_main(image: uefi::Handle, mut system_table: SystemTable<Boot>) -> Status 
         &mut frame_allocator
     );
 
-    // FIXME: recover write protect (Cr0)
+    // FIXED: recover write protect (Cr0)
     unsafe {
         Cr0::update(|f| f.insert(Cr0Flags::WRITE_PROTECT));
     }

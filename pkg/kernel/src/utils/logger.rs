@@ -6,7 +6,7 @@ pub fn init() {
 
     // FIXME: Configure the logger
 
-    log::set_max_level(log::LevelFilter::Trace);
+    log::set_max_level(log::LevelFilter::Info);
 
     info!("Logger Initialized.");
 }
@@ -19,7 +19,7 @@ impl log::Log for Logger {
     }
 
     fn log(&self, record: &Record) {
-        // FIXME: Implement the logger with serial output
+        // FIXED: Implement the logger with serial output
         const RESET: &str = "\x1B[0m";
         const RED: &str = "\x1B[31m";
         const GREEN: &str = "\x1B[32m";

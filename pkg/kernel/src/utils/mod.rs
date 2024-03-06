@@ -10,13 +10,16 @@ pub mod resource;
 
 pub use super::proc::manager::get_process_manager;
 pub use super::*;
+use alloc::string::{String, ToString};
 pub use macros::*;
 pub use regs::*;
 use alloc::format;
 
 use crate::proc::*;
 
+
 pub const fn get_ascii_header() -> &'static str {
+
     concat!(
         r"
 __  __      __  _____            ____  _____
@@ -25,7 +28,7 @@ __  __      __  _____            ____  _____
  / / /_/ / /_ ___/ /  __/ / / / /_/ /___/ /
 /_/\__,_/\__//____/\___/_/ /_/\____//____/
 
-                                       v",
+                         v0.1 henry_y 22336007\n",
         env!("CARGO_PKG_VERSION")
     )
 }
