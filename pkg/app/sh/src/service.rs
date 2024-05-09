@@ -17,7 +17,19 @@ pub fn ls(root_dir: &String) {
 pub fn list_app() {
     sys_list_app();
 }
+pub fn help() {
+    println!("Usage: ");
+    println!("  cat <file> - print file content");
+    println!("  ls - list files in current directory");
+    println!("  cd <dir> - change directory");
+    println!("  pwd - print current directory");
+    println!("  echo <string> - print string");
+    println!("  status - list all processes");
+    println!("  exit - exit shell");
+    println!("  lsapp - list all apps");
+    println!("  exec <app> - execute app");
 
+}
 pub fn list_proc() {
     sys_stat();
 }

@@ -26,6 +26,7 @@ pub fn spawn_init() -> proc::ProcessId {
     // println!("\x1b[1;1H\x1b[2J");
 
     proc::list_app();
+    // sys_exit();
     // proc::spawn("hello").unwrap();
     proc::spawn("sh").unwrap()
 }

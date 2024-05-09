@@ -74,6 +74,10 @@ fn main() -> isize {
                 service::exec(line[1]);
                 continue;
             },
+            "help" => {
+                service::help();
+                continue;
+            },
             _ => {
                 println!("Unknown command: {}", line[0]);
             }
