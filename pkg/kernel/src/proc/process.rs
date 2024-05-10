@@ -1,5 +1,6 @@
 use super::ProcessId;
 use super::*;
+use crate::memory;
 use crate::memory::*;
 use alloc::string::String;
 use alloc::sync::Arc;
@@ -259,6 +260,7 @@ impl ProcessInner {
         self.set_stack(stack_segment.start.start_address(), STACK_DEF_PAGE);
         self.set_max_stack(VirtAddr::new(STACK_INIT_TOP - 0x1_0000_0000), 
             VirtAddr::new(STACK_INIT_TOP+8));
+
         Ok(())
     }
     
@@ -316,14 +318,24 @@ impl core::fmt::Debug for Process {
 impl core::fmt::Display for Process {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         let inner = self.inner.read();
+
+        let (memory, unit) = inner.proc_data.as_ref().map(|d| {
+            let pages = d.get_stack_page();
+            let size = pages * PAGE_SIZE;
+
+            memory::humanized_size(size)
+        }).unwrap_or((0f64, "B"));
+
         write!(
             f,
-            " #{:-3} | #{:-3} | {:12} | {:7} | {:?}",
+            " #{:-3} | #{:-3} | {:12} | {:7} | {:?} | {:?} {}",
             self.pid.0,
             inner.parent().map(|p| p.pid.0).unwrap_or(0),
             inner.name,
             inner.ticks_passed,
-            inner.status
+            inner.status,
+            memory,
+            unit
         )?;
         Ok(())
     }

@@ -1,7 +1,7 @@
 use alloc::{collections::BTreeMap, string::String, sync::Arc};
 use spin::RwLock;
 use x86_64::{
-    structures::paging::{page::PageRange, Page},
+    structures::paging::{page::{PageRange}, Page},
     VirtAddr,
 };
 use crate::utils::resource::{Resource, StdIO};
@@ -83,6 +83,10 @@ impl ProcessData {
         self.file_handles.read().get(&fd).cloned()
     }
 
+    pub fn get_stack_page(&self) -> u64 {
+        let tmp = self.stack_segment.as_ref().unwrap();
+        return tmp.end - tmp.start;
+    }
 
 
 }
