@@ -1,79 +1,81 @@
-use crossbeam_queue::ArrayQueue;
 use alloc::string::String;
-use x86_64::instructions::interrupts;
+use crossbeam_queue::ArrayQueue;
+use lazy_static::lazy_static;
 
-once_mutex!(pub INPUT_BUFFER: ArrayQueue<u8>);
+type Key = u8;
+lazy_static! {
+    static ref INPUT_BUF: ArrayQueue<Key> = ArrayQueue::new(128);
+}
 
-/// push_key: Push a key to the input buffer after lock INPUT_BUFFER
-pub fn push_key(key: u8) {
-    if let Some(buffer) = get_buffer() {
-        if buffer.is_full() { warn!("Input buffer is full, dropping key: {}", key); }
-        else { buffer.push(key).expect("Input buffer push failed.");  }
+pub fn push_key(key: Key) {
+    if INPUT_BUF.push(key).is_err() {
+        warn!("Input buffer is full. Dropping key '{:?}'", key);
     }
 }
 
-/// try_pop_key: Try to pop a key from the input buffer without stall
-/// will return None if buffer is empty or lock failed
-/// need to temperately disable interrupt to avoid deadlock
-pub fn try_pop_key() -> Option<u8> {
-    // 这里不能用x86_64::instructions::interrupts::disable();手动关中断，
-    // 因为运行代码内容太多了，所以会导致互相卡住！！应该在最快的时间把锁释放掉
-
-    // x86_64::instructions::interrupts::disable();
-    // // trace!("try to get lock in try_pop_key");
-    // let buffer = get_buffer();
-    // if buffer.is_none() {
-    //     x86_64::instructions::interrupts::enable();
-    //     return None;
-    // }
-    // // trace!("Get lock in try_pop_key");
-    // // trace!("{}", buffer.len());
-    // let input_buffer = buffer.unwrap();
-    // if input_buffer.is_empty() {
-    //     x86_64::instructions::interrupts::enable();
-    //     return None;
-    // }
-    // let key = input_buffer.pop();
-    // x86_64::instructions::interrupts::enable();
-    // return key;
-    interrupts::without_interrupts(|| {get_buffer_for_sure().pop()})
+#[inline]
+pub fn try_pop_key() -> Option<Key> {
+    INPUT_BUF.pop()
 }
 
-/// pop_key: Pop a key from the input buffer use try_pop_key
-/// will stall until buffer is not empty
 pub fn pop_key() -> u8 {
     loop {
-        let key = try_pop_key();
-        if key != None {
-            // trace!("key: {}", key.unwrap());
-            return key.unwrap();
+        if let Some(data) = try_pop_key() {
+            return data;
         }
     }
 }
 
-/// get_line: Get a line from the input buffer till '\n'
-/// will stall the buffer
 pub fn get_line() -> String {
-    let mut line = String::with_capacity(128);
+    let mut line = String::with_capacity(256);
     loop {
-        // trace!("interrupts enable: {}", x86_64::instructions::interrupts::are_enabled());
-        let key = pop_key();
-        // trace!("key: {}", key);
-        if key == 0xd as u8 {
-            break;
-        } else if key == 0x08 || key == 0x7F {
-            if !line.is_empty() { line.pop(); }
-            continue;    
-        } 
-        line.push(key as u8 as char);
+        let ch = pop_key();
+
+        match ch {
+            13 => {
+                println!();
+                return line;
+            }
+            0x08 | 0x7F if !line.is_empty() => {
+                print!("\x08\x20\x08");
+                line.pop();
+            }
+            _ => {
+                if is_utf8(ch) {
+                    let utf_char = char::from_u32(to_utf8(ch)).unwrap();
+                    line.push(utf_char);
+                    print! {"{}", utf_char};
+                } else {
+                    line.push(ch as char);
+                    print!("{}", ch as char);
+                }
+            }
+        }
     }
-    line
 }
 
-pub fn init() {
-    init_INPUT_BUFFER(ArrayQueue::<u8>::new(128));
-    
-    println!("[+] Input Buffer Initialized.");
+pub fn is_utf8(ch: u8) -> bool {
+    ch & 0x80 == 0 || ch & 0xE0 == 0xC0 || ch & 0xF0 == 0xE0 || ch & 0xF8 == 0xF0
 }
 
-guard_access_fn!(pub get_buffer(INPUT_BUFFER: ArrayQueue<u8>));
+pub fn to_utf8(ch: u8) -> u32 {
+    let mut codepoint = 0;
+
+    if ch & 0x80 == 0 {
+        codepoint = ch as u32;
+    } else if ch & 0xE0 == 0xC0 {
+        codepoint = ((ch & 0x1F) as u32) << 6;
+        codepoint |= (pop_key() & 0x3F) as u32;
+    } else if ch & 0xF0 == 0xE0 {
+        codepoint = ((ch & 0x0F) as u32) << 12;
+        codepoint |= ((pop_key() & 0x3F) as u32) << 6;
+        codepoint |= (pop_key() & 0x3F) as u32;
+    } else if ch & 0xF8 == 0xF0 {
+        codepoint = ((ch & 0x07) as u32) << 18;
+        codepoint |= ((pop_key() & 0x3F) as u32) << 12;
+        codepoint |= ((pop_key() & 0x3F) as u32) << 6;
+        codepoint |= (pop_key() & 0x3F) as u32;
+    }
+
+    codepoint
+}

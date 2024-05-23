@@ -5,19 +5,13 @@ use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
 mod service;
 use super::consts;
-
-// FIXME: write syscall service handler in `service.rs`
 use service::*;
 
-pub unsafe fn register_idt(idt: &mut InterruptDescriptorTable) {
-    // FIXME: register syscall handler to IDT
-    //        - standalone syscall stack
-    //        - ring 3
-    idt[consts::Interrupts::Syscall as usize]
+pub unsafe fn reg_idt(idt: &mut InterruptDescriptorTable) {
+    idt[consts::Interrupts::Syscall as u8]
         .set_handler_fn(syscall_handler)
         .set_stack_index(gdt::SYSCALL_IST_INDEX)
         .set_privilege_level(x86_64::PrivilegeLevel::Ring3);
-
 }
 
 pub extern "C" fn syscall(mut context: ProcessContext) {
@@ -44,71 +38,35 @@ pub fn dispatcher(context: &mut ProcessContext) {
         context.regs.rdx,
     );
 
-    // match args.syscall  {
-    //     Syscall::Read => {},
-    //     _ => {
-    //         info!("{}", args);
-    //     }
-    // }
-
-    // debug!("Syscall: {:#?}", context);
-    //debug!("Syscall: {:#?} at {:?}", context, core::ptr::addr_of!(context));
-
     match args.syscall {
-        // fd: arg0 as u8, buf: &[u8] (ptr: arg1 as *const u8, len: arg2)
-        Syscall::ListDir => {
-            sys_list_dir(&args);
-        },
-        Syscall::Read => { 
-            /* FIXME: read from fd & return length */
-            context.set_rax(sys_read(&args))
-        },
-        // fd: arg0 as u8, buf: &[u8] (ptr: arg1 as *const u8, len: arg2)
-        Syscall::Write => { 
-            /* FIXME: write to fd & return length */
-            context.set_rax(sys_write(&args))
-        },
-
-        // path: &str (ptr: arg0 as *const u8, len: arg1) -> pid: u16
-        Syscall::Spawn => { 
-            /* FIXME: spawn process from name */
-            context.set_rax(spawn_process(&args))
-        },
-        // ret: arg0 as isize
-        Syscall::Exit => { 
-            /* FIXME: exit process with retcode */
-            sys_exit_process(&args, context)
-        },
+        // fd: arg0 as u8, buf: &[u8] (arg1 as *const u8, arg2 as len)
+        Syscall::Read => context.set_rax(sys_read(&args)),
+        // fd: arg0 as u8, buf: &[u8] (arg1 as *const u8, arg2 as len)
+        Syscall::Write => context.set_rax(sys_write(&args)),
+        // None -> pid: u16
+        Syscall::GetPid => context.set_rax(sys_get_pid() as usize),
+        // path: &str (arg0 as *const u8, arg1 as len) -> pid: u16
+        Syscall::Spawn => context.set_rax(spawn_process(&args)),
+        // pid: arg0 as u16
+        Syscall::Exit => exit_process(&args, context),
         // pid: arg0 as u16 -> status: isize
-        Syscall::WaitPid => {
-            /* FIXME: check if the process is running or get retcode */
-            context.set_rax(sys_waitpid(&args))
-        },
-
+        Syscall::WaitPid => sys_wait_pid(&args, context),
+        // pid: arg0 as u16
+        Syscall::Kill => sys_kill(&args, context),
+        // None -> time: usize
+        Syscall::Time => context.set_rax(sys_clock() as usize),
         // None
-        Syscall::Stat => { 
-            /* FIXME: list processes */ 
-            context.set_rax(sys_list_process())
-        },
+        Syscall::Stat => list_process(),
         // None
-        Syscall::ListApp => { 
-            /* FIXME: list avaliable apps */
-            context.set_rax(sys_list_app())
-        },
-
-        // ----------------------------------------------------
-        // NOTE: following syscall examples are implemented
-        // ----------------------------------------------------
+        Syscall::ListApp => list_app(),
 
         // layout: arg0 as *const Layout -> ptr: *mut u8
         Syscall::Allocate => context.set_rax(sys_allocate(&args)),
         // ptr: arg0 as *mut u8
         Syscall::Deallocate => sys_deallocate(&args),
-        // Unknown
-        Syscall::Unknown => warn!("Unhandled syscall: {:x?}", context.regs.rax),
+        // None
+        Syscall::None => {}
     }
-
-    //debug!("After Syscall: {:#?} at {:?}", context, core::ptr::addr_of!(context));
 }
 
 impl SyscallArgs {

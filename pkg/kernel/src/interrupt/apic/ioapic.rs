@@ -1,8 +1,9 @@
+#![allow(dead_code)]
+use bit_field::BitField;
+
 /// The I/O APIC manages hardware interrupts for an SMP system.
 ///
 /// [Intel Doc](http://www.intel.com/design/chipsets/datashts/29056601.pdf)
-
-use bit_field::BitField;
 
 /// Default physical address of IO APIC
 pub const IOAPIC_ADDR: u64 = 0xFEC00000;
@@ -26,7 +27,6 @@ bitflags! {
         const NONE		= 0x00000000;
     }
 }
-
 
 pub struct IoApic {
     reg: *mut u32,

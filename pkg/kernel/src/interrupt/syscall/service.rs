@@ -5,98 +5,15 @@ use crate::utils::*;
 
 use super::SyscallArgs;
 
-pub fn spawn_process(args: &SyscallArgs) -> usize {
-    // FIXME: get app name by args
-    //       - core::str::from_utf8_unchecked
-    //       - core::slice::
-    unsafe {
-        let app_name = core::str::from_utf8_unchecked(
-            core::slice::from_raw_parts(
-                args.arg0 as *const u8,
-                args.arg1
-            )
-        );
-
-        // FIXME: spawn the process by name
-        let pid = crate::proc::spawn(app_name);
-        
-        // FIXME: handle spawn error, return 0 if failed
-        if pid.is_none() {
-            0
-        } else {
-            pid.unwrap().0 as usize
-        }
-    }
-    
-    // FIXME: return pid as usize
-}
-
-#[no_mangle]
-#[inline(never)]
-pub fn sys_write(args: &SyscallArgs) -> usize {
-    // FIXME: get handle by fd
-    // FIXME: handle read from fd & return length
-    //       - core::slice::from_raw_parts
-    // FIXME: return 0 if failed
-
-    // debug!("sys_write: {:?}", args);
-    // let buf: &[u8] = unsafe { core::slice::from_raw_parts(args.arg1 as *mut u8, args.arg2) };
-
-    // print!("[W] {}", unsafe {  core::str::from_utf8_unchecked(buf) });
-
-    unsafe {
-        let fd = args.arg0;
-        let buf = args.arg1;
-        let len = args.arg2;
-
-        let fd = crate::proc::handle(fd as u8);
-
-
-        if let Some(res) = fd {
-            let buf: &[u8] = core::slice::from_raw_parts(buf as *mut u8, len);
-            if let Some(size) = res.write(buf) {
-                size
-            } else {
-                0
-            }
-        } else {
-            0
-        }
-    }
-
-    // buf.len()
-}
-
-pub fn sys_read(args: &SyscallArgs) -> usize {
-    // FIXME: just like sys_write
-    let fd = handle(args.arg0 as u8);
-    if let Some(res) = fd {
-        let buf = unsafe { core::slice::from_raw_parts_mut(args.arg1 as *mut u8, args.arg2) };
-        if let Some(size) = res.read(buf) {
-            size
-        } else {
-            0
-        }
-    } else {
-        0
-    }
-}
-
-pub fn sys_exit_process(args: &SyscallArgs, context: &mut ProcessContext) {
-    // FIXME: exit process with retcode
-    crate::proc::exit(args.arg0 as isize, context)
-}
-
-pub fn sys_list_process() -> usize {
-    // FIXME: list all processes
-    crate::proc::print_process_list();
-    0
+pub fn sys_clock() -> i64 {
+    clock::now()
+        .and_utc()
+        .timestamp_nanos_opt()
+        .unwrap_or_default()
 }
 
 pub fn sys_allocate(args: &SyscallArgs) -> usize {
     let layout = unsafe { (args.arg0 as *const Layout).as_ref().unwrap() };
-
-    //info!("Allocate: {:?}", layout);
 
     if layout.size() == 0 {
         return 0;
@@ -128,18 +45,58 @@ pub fn sys_deallocate(args: &SyscallArgs) {
     }
 }
 
+pub fn spawn_process(args: &SyscallArgs) -> usize {
+    let name = unsafe {
+        core::str::from_utf8_unchecked(core::slice::from_raw_parts(
+            args.arg0 as *const u8,
+            args.arg1,
+        ))
+    };
 
-pub fn sys_waitpid(args: &SyscallArgs) -> usize {
+    let pid = crate::proc::spawn(name);
+
+    if pid.is_err() {
+        warn!("spawn_process: failed to spawn process: {}", name);
+        return 0;
+    }
+
+    pid.unwrap().0 as usize
+}
+
+pub fn sys_read(args: &SyscallArgs) -> usize {
+    let buf = unsafe { core::slice::from_raw_parts_mut(args.arg1 as *mut u8, args.arg2) };
+    let fd = args.arg0 as u8;
+    read(fd, buf) as usize
+}
+
+pub fn sys_write(args: &SyscallArgs) -> usize {
+    let buf = unsafe { core::slice::from_raw_parts(args.arg1 as *const u8, args.arg2) };
+    let fd = args.arg0 as u8;
+    write(fd, buf) as usize
+}
+
+pub fn sys_get_pid() -> u16 {
+    current_pid().0
+}
+
+pub fn exit_process(args: &SyscallArgs, context: &mut ProcessContext) {
+    process_exit(args.arg0 as isize, context);
+}
+
+pub fn list_process() {
+    print_process_list();
+}
+
+pub fn sys_wait_pid(args: &SyscallArgs, context: &mut ProcessContext) {
     let pid = ProcessId(args.arg0 as u16);
-    let ret = wait_pid(pid);
-    ret as usize
+    wait_pid(pid, context);
 }
 
-pub fn sys_list_app() -> usize {
-    crate::proc::list_app();
-    0
-}
-
-pub fn sys_list_dir(args: &SyscallArgs) {
-    
+pub fn sys_kill(args: &SyscallArgs, context: &mut ProcessContext) {
+    let pid = ProcessId(args.arg0 as u16);
+    if pid == ProcessId(1) {
+        warn!("sys_kill: cannot kill kernel!");
+        return;
+    }
+    kill(pid, context);
 }

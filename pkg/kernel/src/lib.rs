@@ -1,14 +1,11 @@
 #![no_std]
-#![allow(dead_code)]
 #![feature(naked_functions)]
 #![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
 #![feature(type_alias_impl_trait)]
 #![feature(panic_info_message)]
-#![feature(map_try_insert)]
-#![allow(clippy::missing_safety_doc)]
-#![allow(clippy::result_unit_err)]
 
+#[macro_use]
 extern crate alloc;
 #[macro_use]
 extern crate log;
@@ -26,8 +23,8 @@ pub use utils::*;
 pub mod drivers;
 pub use drivers::*;
 
-pub mod memory;
 pub mod interrupt;
+pub mod memory;
 pub mod proc;
 
 pub use alloc::format;
@@ -35,26 +32,30 @@ use boot::BootInfo;
 
 pub fn init(boot_info: &'static BootInfo) {
     serial::init(); // init serial output
-    logger::init(); // init logger system
-    
+    logger::init(boot_info); // init logger system
     memory::address::init(boot_info);
     memory::gdt::init(); // init gdt
     memory::allocator::init(); // init kernel heap allocator
-    
-
-    proc::init(boot_info); // init process manager
-
     interrupt::init(); // init interrupts
+    clock::init(boot_info); // init clock (uefi service)
     memory::init(boot_info); // init memory manager
-    memory::user::init();
-    
+    memory::user::init(); // init user heap allocator
+    proc::init(boot_info); // init task manager
+
     x86_64::instructions::interrupts::enable();
     info!("Interrupts Enabled.");
-    
-    // init io buffer
-    drivers::input::init();
 
     info!("YatSenOS initialized.");
+}
+
+pub fn wait(init: proc::ProcessId) {
+    loop {
+        if proc::wait_no_block(init).is_none() {
+            x86_64::instructions::hlt();
+        } else {
+            break;
+        }
+    }
 }
 
 pub fn shutdown(boot_info: &'static BootInfo) -> ! {
@@ -65,15 +66,5 @@ pub fn shutdown(boot_info: &'static BootInfo) -> ! {
             boot::UefiStatus::SUCCESS,
             None,
         );
-    }
-}
-
-pub fn wait(init: proc::ProcessId) {
-    loop {
-        if proc::still_alive(init) {
-            x86_64::instructions::hlt(); // Why? Check reflection question 5
-        } else {
-            break;
-        }
     }
 }

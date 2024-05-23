@@ -1,33 +1,36 @@
 #![no_std]
 #![no_main]
 
-use core::alloc::Layout;
-
 use lib::*;
 
 extern crate lib;
 
-struct Data {
-    a: i32,
-    b: i32,
+fn main() -> usize {
+    println!("Hello, world!!!");
+
+    let time = lib::sys_time();
+    println!("Now at: {}", time);
+
+    huge_stack();
+
+    println!("Exiting...");
+
+    233
 }
 
-fn main() -> isize {
-    //println!("Hello, world!!!");
-    stdout().write("Hello, world!!!\n");
+#[inline(never)]
+fn huge_stack() {
+    println!("Huge stack testing...");
 
-    let layout = Layout::new::<Data>();
+    let mut stack = [0u64; 0x1000];
 
-    let ptr = sys_allocate(&layout);
+    for i in 0..stack.len() {
+        stack[i] = i as u64;
+    }
 
-    println!("ptr: {:?}", ptr);
-
-    let data = unsafe { &mut *(ptr as *mut Data) };
-
-
-
-    // loop {}
-    233
+    for i in 0..stack.len() / 256 {
+        println!("{:#05x} == {:#05x}", i * 256, stack[i * 256]);
+    }
 }
 
 entry!(main);
