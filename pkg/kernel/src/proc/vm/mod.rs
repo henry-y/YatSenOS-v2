@@ -19,9 +19,8 @@ pub struct ProcessVm {
 
     // stack is pre-process allocated
     pub(super) stack: Stack,
-    pub(super) code: Vec<u64>,
+    pub(super) code: Vec<page::PageRangeInclusive>,
 
-    pub(super) stack_usage: u64,
     pub(super) code_usage: u64
 }
 
@@ -32,7 +31,6 @@ impl ProcessVm {
             stack: Stack::empty(),
             code: Vec::new(),
 
-            stack_usage: 0,
             code_usage: 0
         }
     }
@@ -73,7 +71,6 @@ impl ProcessVm {
         Self {
             page_table: owned_page_table,
             stack: self.stack.fork(mapper, alloc, stack_offset_count),
-            stack_usage: self.stack_usage,
             // do not share code info
             code: Vec::new(),
             code_usage: 0,
