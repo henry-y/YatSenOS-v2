@@ -190,9 +190,11 @@ impl ProcessManager {
     //     pid
     // }
 
-    pub fn wake_up(&self, pid: ProcessId) {
+    pub fn wake_up(&self, pid: ProcessId, ret: isize) {
         if let Some(proc) = self.get_proc(&pid) {
-            proc.write().pause();
+            let mut proc = proc.write();
+            proc.set_return_value(ret);
+            proc.pause();
             self.push_ready(pid);
         }
     }
@@ -232,7 +234,7 @@ impl ProcessManager {
 
         if let Some(pids) = self.wait_queue.lock().remove(&pid) {
             for p in pids {
-                self.wake_up(p);
+                self.wake_up(p, ret);
             }
         }
     }
@@ -271,6 +273,27 @@ impl ProcessManager {
 
         print!("{}", output);
     }
+
+    pub fn fork(&self) {
+        // FIXME: get current process
+        let proc = self.current();
+        // FIXME: fork to get child
+        let child = proc.fork();
+        
+        info!("fork proc {:?}\n", child);
+        
+        print_process_list();
+
+        // FIXME: add child to process list
+        let pid = child.pid();
+        self.push_ready(pid);
+        self.add_proc(pid, child);
+            
+        // FOR DBG: maybe print the process ready queue?
+        self.print_process_list();
+
+    }
+
 }
 
 fn format_usage(name: &str, used: usize, total: usize) -> String {

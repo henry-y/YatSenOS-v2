@@ -1,3 +1,5 @@
+use core::ptr::copy_nonoverlapping;
+
 use x86_64::{
     structures::paging::{mapper::MapToError, page::*, Page},
     VirtAddr,
@@ -146,6 +148,51 @@ impl Stack {
         Ok(())
     }
 
+    pub fn fork(
+        &self,
+        mapper: MapperRef,
+        alloc: FrameAllocatorRef,
+        stack_offset_count: u64,
+    ) -> Self {
+        // FIXME: alloc & map new stack for child (see instructions)
+        // 这里的offset是child个数 即多少个max_stack
+        let mut new_stack_top = self.range.start.start_address().as_u64() - stack_offset_count * STACK_MAX_SIZE;
+        while elf::map_pages(new_stack_top, self.usage, mapper, alloc, true).is_err() {
+            trace!("Failed to map new stack on {:#x}, retrying...", new_stack_top);
+            new_stack_top -= STACK_MAX_SIZE;
+        }
+
+        // FIXME: copy the *entire stack* from parent to child
+        self.clone_range(
+            self.range.start.start_address().as_u64(),
+            new_stack_top,
+            self.usage,
+        );
+
+        let start = Page::containing_address(VirtAddr::new(new_stack_top));
+        // FIXME: return the new stack
+        Self {
+            range: Page::range(start, start + self.usage),
+            usage: self.usage
+        }
+    }
+
+    /// Clone a range of memory
+    ///
+    /// - `src_addr`: the address of the source memory
+    /// - `dest_addr`: the address of the target memory
+    /// - `size`: the count of pages to be cloned
+    fn clone_range(&self, cur_addr: u64, dest_addr: u64, size: u64) {
+        trace!("Clone range: {:#x} -> {:#x}", cur_addr, dest_addr);
+        unsafe {
+            copy_nonoverlapping::<u64>(
+                cur_addr as *mut u64,
+                dest_addr as *mut u64,
+                (size * Size4KiB::SIZE / 8) as usize,
+            );
+        }
+    }
+    
     pub fn memory_usage(&self) -> u64 {
         self.usage * crate::memory::PAGE_SIZE
     }

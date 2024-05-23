@@ -39,6 +39,8 @@ pub fn dispatcher(context: &mut ProcessContext) {
     );
 
     match args.syscall {
+        // None -> pid: u16 or 0 or -1
+        Syscall::Fork => {sys_fork(context);},
         // fd: arg0 as u8, buf: &[u8] (arg1 as *const u8, arg2 as len)
         Syscall::Read => context.set_rax(sys_read(&args)),
         // fd: arg0 as u8, buf: &[u8] (arg1 as *const u8, arg2 as len)

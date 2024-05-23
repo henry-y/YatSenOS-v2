@@ -83,3 +83,8 @@ pub fn sys_get_pid() -> u16 {
 pub fn sys_kill(pid: u16) {
     syscall!(Syscall::Kill, pid as u64);
 }
+
+#[inline(always)]
+pub fn sys_fork() -> u16 {
+    syscall!(Syscall::Fork) as u16
+}

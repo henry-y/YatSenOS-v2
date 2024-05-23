@@ -18,6 +18,7 @@ pub struct ProcessInner {
     exit_code: Option<isize>,
     proc_data: Option<ProcessData>,
     proc_vm: Option<ProcessVm>,
+
 }
 
 impl Process {
@@ -69,6 +70,7 @@ impl Process {
         })
     }
 
+
     pub fn kill(&self, ret: isize) {
         let mut inner = self.inner.write();
 
@@ -81,6 +83,36 @@ impl Process {
 
         inner.kill(ret);
     }
+
+    pub fn fork(self: &Arc<Self>) -> Arc<Self> {
+        // FIXME: lock inner as write
+        let mut inner = self.write();
+
+        // FIXME: inner fork with parent weak ref
+        let child_inner = inner.fork(Arc::downgrade(self));
+        let child_pid = ProcessId::new();
+        // FOR DBG: maybe print the child process info
+        //          e.g. parent, name, pid, etc.
+
+        info!("Forked process {}#{}", child_inner.name(), child_pid);
+        info!("Parent process {}#{}", inner.name(), self.pid().0);
+
+        inner.pause();
+        // FIXME: make the arc of child
+        let child = Arc::new(Self {
+            pid: child_pid,
+            inner: Arc::new(RwLock::new(child_inner)),
+        });
+        // FIXME: add child to current process's children list
+        inner.children.push(child.clone());
+        // FIXME: set fork ret value for parent with `context.set_rax`
+        inner.context.set_rax(child.pid().0 as usize);
+        drop(inner);
+
+        // FIXME: mark the child as ready & return it
+        child
+    }
+
 }
 
 impl ProcessInner {
@@ -128,6 +160,10 @@ impl ProcessInner {
         self.vm_mut().handle_page_fault(addr)
     }
 
+    pub fn set_return_value(&mut self, ret: isize) {
+        self.context.set_rax(ret as usize);
+    }
+
     pub fn clone_page_table(&self) -> PageTableContext {
         self.vm().page_table.clone_level_4()
     }
@@ -165,6 +201,39 @@ impl ProcessInner {
         self.exit_code = Some(ret);
         self.status = ProgramStatus::Dead;
     }
+
+    pub fn fork(&mut self, parent: Weak<Process>) -> ProcessInner {
+        // 这里不能改self，因为self是从上面的inner继承来的，实际还是在一个parent里面
+        // 应该返回一个构造而不是Self
+
+        // FIXME: fork the process virtual memory struct
+        // FIXME: calculate the real stack offset
+        let new_vm = self.vm().fork(self.children.len() as u64);
+        let offset = new_vm.stack.stack_offset(&self.vm().stack);
+
+        // FIXME: update `rsp` in interrupt stack frame
+        // FIXME: set the return value 0 for child with `context.set_rax`
+        // FIXME: clone the process data struct
+        let mut new_context = self.context;
+        new_context.set_stack_offset(offset);
+        new_context.set_rax(0);
+
+        // FIXME: construct the child process inner
+        // NOTE: return inner because there's no pid record in inner
+        Self {
+            name: self.name.clone(),
+            parent: Some(parent),
+            children: Vec::new(),
+            ticks_passed: 0,
+            status: ProgramStatus::Ready,
+            context: new_context,
+            exit_code: None,
+            proc_data: self.proc_data.clone(),
+            proc_vm: Some(new_vm),
+        }
+
+    }
+
 }
 
 impl core::ops::Deref for Process {

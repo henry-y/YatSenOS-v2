@@ -71,6 +71,14 @@ impl PageTableContext {
             )
         }
     }
+
+    pub fn fork(&self) -> Self {
+        // forked process shares the page table
+        Self {
+            reg: self.reg.clone(),
+        }
+    }
+
 }
 
 impl Default for PageTableContext {

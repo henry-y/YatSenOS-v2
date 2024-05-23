@@ -1,5 +1,6 @@
 use x86_64::{structures::paging::*, VirtAddr};
 use xmas_elf::ElfFile;
+use alloc::vec::Vec;
 
 use crate::memory::*;
 
@@ -18,6 +19,10 @@ pub struct ProcessVm {
 
     // stack is pre-process allocated
     pub(super) stack: Stack,
+    pub(super) code: Vec<u64>,
+
+    pub(super) stack_usage: u64,
+    pub(super) code_usage: u64
 }
 
 impl ProcessVm {
@@ -25,6 +30,10 @@ impl ProcessVm {
         Self {
             page_table,
             stack: Stack::empty(),
+            code: Vec::new(),
+
+            stack_usage: 0,
+            code_usage: 0
         }
     }
 
@@ -53,6 +62,24 @@ impl ProcessVm {
 
         self.stack.handle_page_fault(addr, mapper, alloc)
     }
+
+    pub fn fork(&self, stack_offset_count: u64) -> Self {
+        // clone the page table context (see instructions)
+        let owned_page_table = self.page_table.fork();
+
+        let mapper = &mut owned_page_table.mapper();
+        let alloc = &mut *get_frame_alloc_for_sure();
+
+        Self {
+            page_table: owned_page_table,
+            stack: self.stack.fork(mapper, alloc, stack_offset_count),
+            stack_usage: self.stack_usage,
+            // do not share code info
+            code: Vec::new(),
+            code_usage: 0,
+        }
+    }
+
 }
 
 impl core::fmt::Debug for ProcessVm {
