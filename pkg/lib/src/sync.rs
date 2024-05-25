@@ -50,18 +50,18 @@ impl Semaphore {
     }
 
     #[inline(always)]
-    pub fn wait(&self) -> bool {
-        sys_wait_sem(self.key)
+    pub fn wait(&self) {
+        sys_wait_sem(self.key);
     }
 
     #[inline(always)]
     pub fn signal(&self) {
-        sys_signal_sem(self.key)
+        sys_signal_sem(self.key);
     }
 
     #[inline(always)]
-    pub fn destroy(&self) {
-        sys_del_sem(self.key)
+    pub fn remove(&self) {
+        sys_del_sem(self.key);
     }
 
     /* FIXME: other functions with syscall... */

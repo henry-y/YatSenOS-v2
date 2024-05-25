@@ -5,6 +5,7 @@ use lib::*;
 
 extern crate lib;
 
+static LOCK: SpinLock = lib::SpinLock::new();
 const THREAD_COUNT: usize = 8;
 static mut COUNTER: isize = 0;
 
@@ -15,6 +16,7 @@ fn main() -> isize {
         let pid = sys_fork();
         if pid == 0 {
             do_counter_inc();
+
             sys_exit(0);
         } else {
             pids[i] = pid; // only parent knows child's pid
@@ -37,8 +39,10 @@ fn main() -> isize {
 
 fn do_counter_inc() {
     for _ in 0..100 {
-        // FIXME: protect the critical section
+        // FIXME: protect the critical section  
+        LOCK.acquire();      
         inc_counter();
+        LOCK.release();
     }
 }
 

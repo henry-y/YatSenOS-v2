@@ -289,17 +289,17 @@ impl ProcessManager {
         // FIXME: fork to get child
         let child = proc.fork();
         
-        info!("fork proc {:?}\n", child);
+        debug!("fork proc {:?}\n", child);
         
-        print_process_list();
-
+        //print_process_list();
+        
         // FIXME: add child to process list
         let pid = child.pid();
         self.push_ready(pid);
         self.add_proc(pid, child);
             
         // FOR DBG: maybe print the process ready queue?
-        self.print_process_list();
+        // print_process_list();
 
     }
 
