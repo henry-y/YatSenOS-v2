@@ -88,3 +88,23 @@ pub fn sys_kill(pid: u16) {
 pub fn sys_fork() -> u16 {
     syscall!(Syscall::Fork) as u16
 }
+
+#[inline(always)] 
+pub fn sys_new_sem(key: u32, val: usize) -> bool {
+    syscall!(Syscall::Sem, 0, key as usize, val) == 0
+}
+
+#[inline(always)]
+pub fn sys_del_sem(key: u32) -> bool {
+    syscall!(Syscall::Sem, 1, key as usize, 0) == 0
+}
+
+#[inline(always)]
+pub fn sys_signal_sem(key: u32) {
+    syscall!(Syscall::Sem, 2, key as usize);
+}
+
+#[inline(always)]
+pub fn sys_wait_sem(key: u32) {
+    syscall!(Syscall::Sem, 3, key as usize);
+}

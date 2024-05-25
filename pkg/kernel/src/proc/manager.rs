@@ -193,7 +193,9 @@ impl ProcessManager {
     pub fn wake_up(&self, pid: ProcessId, ret: isize) {
         if let Some(proc) = self.get_proc(&pid) {
             let mut proc = proc.write();
+            
             proc.set_return_value(ret);
+
             proc.pause();
             self.push_ready(pid);
         }
@@ -201,6 +203,13 @@ impl ProcessManager {
 
     pub fn kill_self(&self, ret: isize) {
         self.kill(processor::current_pid(), ret);
+    }
+
+    pub fn block(&self, pid: ProcessId) {
+        if let Some(proc) = self.get_proc(&pid) {
+            let mut proc = proc.write();
+            proc.block();
+        }
     }
 
     pub fn handle_page_fault(&self, addr: VirtAddr, err_code: PageFaultErrorCode) -> bool {

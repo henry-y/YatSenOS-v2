@@ -6,6 +6,7 @@ mod pid;
 mod process;
 mod processor;
 mod vm;
+mod sync;
 
 use alloc::sync::Arc;
 use alloc::vec::Vec;
@@ -22,6 +23,8 @@ use xmas_elf::ElfFile;
 use alloc::string::{String, ToString};
 use x86_64::structures::idt::PageFaultErrorCode;
 use x86_64::VirtAddr;
+
+use self::sync::SemaphoreResult;
 
 pub const KERNEL_PID: ProcessId = ProcessId(1);
 
@@ -191,4 +194,62 @@ pub fn list_app() {
 
         println!(">>> App list: {}", apps);
     });
+}
+
+pub fn sem_wait(key: u32, context: &mut ProcessContext) {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let manager = get_process_manager();
+        let pid = processor::current_pid();
+        let ret = manager.current().write().sem_wait(key, pid);
+        match ret {
+            SemaphoreResult::Ok => context.set_rax(0),
+            SemaphoreResult::NotExist => context.set_rax(1),
+            SemaphoreResult::Block(pid) => {
+                // FIXME: save, block it, then switch to next
+                //        use `save_current` and `switch_next`
+                let pid = manager.save_current(context);
+                manager.block(pid);
+                manager.switch_next(context);
+            }
+            _ => unreachable!(),
+        }
+    })
+}
+
+pub fn sem_signal(key: u32, context: &mut ProcessContext) {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let manager = get_process_manager();
+        let pid = processor::current_pid();
+        let ret = manager.current().write().sem_signal(key);
+        match ret {
+            SemaphoreResult::Ok => context.set_rax(0),
+            SemaphoreResult::NotExist => context.set_rax(1),
+            SemaphoreResult::WakeUp(pid) => manager.wake_up(pid, 0),
+            _ => unreachable!(),
+        }
+    })
+}
+
+pub fn new_sem(key: u32, init: usize) -> usize {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let manager = get_process_manager();
+        let ret = manager.current().write().sem_new(key, init);
+        if ret {
+            0
+        } else {
+            1
+        }
+    })
+}
+
+pub fn remove_sem(key: u32) -> usize {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let manager = get_process_manager();
+        let ret = manager.current().write().sem_remove(key);
+        if ret {
+            0
+        } else {
+            1
+        }
+    })
 }

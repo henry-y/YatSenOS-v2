@@ -17,6 +17,7 @@ pub enum Syscall {
     Exit = 60,
     WaitPid = 61,
     Kill = 62,
+    Sem = 63,
 
     Time = 201,
 
