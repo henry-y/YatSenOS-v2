@@ -8,11 +8,30 @@ extern crate lib;
 static LOCK: SpinLock = lib::SpinLock::new();
 const THREAD_COUNT: usize = 8;
 static mut COUNTER: isize = 0;
+static mut COUNTER_SEM: isize = 0;
 
 fn main() -> isize {
-    let mut pids = [0u16; THREAD_COUNT];
+    let pid = sys_fork();
 
-    for i in 0..THREAD_COUNT {
+    if pid == 0 {
+        test_spin_lock();
+        sys_exit(0);
+    } else {
+        test_semaphore();
+        sys_wait_pid(pid);
+    }
+
+    println!("COUNTER result: {}", unsafe { COUNTER });
+    println!("COUNTER_SEM result: {}", unsafe { COUNTER_SEM });
+
+    0
+}
+
+fn test_spin_lock() {
+    const HOLD: usize = THREAD_COUNT / 2;
+    let mut pids = [0u16; HOLD];
+    
+    for i in 0..HOLD {
         let pid = sys_fork();
         if pid == 0 {
             do_counter_inc();
@@ -27,14 +46,53 @@ fn main() -> isize {
     println!("process #{} holds threads: {:?}", cpid, &pids);
     sys_stat();
 
-    for i in 0..THREAD_COUNT {
+    for i in 0..HOLD {
         println!("#{} waiting for #{}...", cpid, pids[i]);
         sys_wait_pid(pids[i]);
     }
 
-    println!("COUNTER result: {}", unsafe { COUNTER });
 
-    0
+}
+
+fn test_semaphore() {
+    const HOLD: usize = THREAD_COUNT / 2;
+    let mut pids = [0u16; HOLD];
+    let key = 0x1234;
+    sys_new_sem(key, 1);
+
+    for i in 0..HOLD {
+        let pid = sys_fork();
+        if pid == 0 {
+            do_counter_inc_semaphore();
+
+            sys_exit(0);
+        } else {
+            pids[i] = pid; // only parent knows child's pid
+        }
+    }
+
+    let cpid = sys_get_pid();
+    println!("process #{} holds threads: {:?}", cpid, &pids);
+    sys_stat();
+
+    for i in 0..HOLD {
+        println!("#{} waiting for #{}...", cpid, pids[i]);
+        sys_wait_pid(pids[i]);
+    }
+
+    sys_del_sem(key);
+}
+
+fn do_counter_inc_semaphore() {
+    let key = 0x1234;
+    
+
+    for _ in 0..100 {
+        sys_wait_sem(key);
+        inc_counter_sem();
+        sys_signal_sem(key);
+    }
+
 }
 
 fn do_counter_inc() {
@@ -58,6 +116,17 @@ fn inc_counter() {
         val += 1;
         delay();
         COUNTER = val;
+    }
+}
+
+fn inc_counter_sem() {
+    unsafe {
+        delay();
+        let mut val = COUNTER_SEM;
+        delay();
+        val += 1;
+        delay();
+        COUNTER_SEM = val;
     }
 }
 
