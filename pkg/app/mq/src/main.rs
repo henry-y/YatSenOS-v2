@@ -5,7 +5,6 @@ extern crate alloc;
 use lib::{collections::VecDeque, *};
 
 extern crate lib;
-use lib::sync::*;
 
 #[derive(Debug)]
 struct Message {
@@ -13,7 +12,7 @@ struct Message {
     val: usize,
 }
 
-const SIZE: u32 = 1;
+const SIZE: u32 = 8;
 static mut MQ: VecDeque<Message> = VecDeque::new();
 static MUTEX: Semaphore = Semaphore::new(1);
 static EMPTY: Semaphore = Semaphore::new(2);
@@ -30,7 +29,7 @@ fn produce(pid: u16) {
         let msg = Message::new(pid, i as usize);
         EMPTY.wait();
         MUTEX.wait();
-        println!("producer pid: {}, send: {}", msg.pid, msg.val);
+        println!("producer pid: {}, send: {}, now queue length: {}", msg.pid, msg.val, unsafe { MQ.len() });
         unsafe {
             MQ.push_back(msg);
         }
@@ -44,10 +43,10 @@ fn consume(pid: u16) {
         FULL.wait();
         MUTEX.wait();
         let msg = unsafe { MQ.pop_front().unwrap() };
-        println!("consumer pid: {}, recv from {}: {}", pid, msg.pid, msg.val);
+        println!("consumer pid: {}, recv from {}: {}, now queue length: {}", pid, msg.pid, msg.val, unsafe { MQ.len() });
         MUTEX.signal();
         EMPTY.signal();
-        println!("pid: {}, val: {}", msg.pid, msg.val);
+        //println!("pid: {}, val: {}", msg.pid, msg.val);
     }
 }
 
