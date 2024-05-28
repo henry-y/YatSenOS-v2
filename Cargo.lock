@@ -173,13 +173,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mq"
-version = "0.1.0"
-dependencies = [
- "yslib",
-]
-
-[[package]]
 name = "num-traits"
 version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -474,6 +467,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ysos_dinner"
+version = "0.1.0"
+dependencies = [
+ "yslib",
+]
+
+[[package]]
 name = "ysos_elf"
 version = "0.1.0"
 dependencies = [
@@ -527,6 +527,13 @@ dependencies = [
  "ysos_boot",
  "ysos_elf",
  "ysos_syscall",
+]
+
+[[package]]
+name = "ysos_mq"
+version = "0.1.0"
+dependencies = [
+ "yslib",
 ]
 
 [[package]]

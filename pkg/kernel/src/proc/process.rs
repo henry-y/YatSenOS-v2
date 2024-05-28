@@ -1,7 +1,6 @@
 use super::*;
 use alloc::sync::Weak;
 use spin::*;
-use super::sync::*;
 
 #[derive(Clone)]
 pub struct Process {

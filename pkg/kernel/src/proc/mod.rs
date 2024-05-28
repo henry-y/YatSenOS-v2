@@ -204,7 +204,7 @@ pub fn sem_wait(key: u32, context: &mut ProcessContext) {
         match ret {
             SemaphoreResult::Ok => context.set_rax(0),
             SemaphoreResult::NotExist => context.set_rax(1),
-            SemaphoreResult::Block(pid) => {
+            SemaphoreResult::Block(_pid) => {
                 // FIXME: save, block it, then switch to next
                 //        use `save_current` and `switch_next`
                 let pid = manager.save_current(context);

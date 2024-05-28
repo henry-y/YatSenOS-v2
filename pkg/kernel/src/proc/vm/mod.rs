@@ -13,6 +13,7 @@ use super::PageTableContext;
 type MapperRef<'a> = &'a mut OffsetPageTable<'static>;
 type FrameAllocatorRef<'a> = &'a mut BootInfoFrameAllocator;
 
+#[allow(dead_code)]
 pub struct ProcessVm {
     // page table is shared by parent and child
     pub(super) page_table: PageTableContext,
