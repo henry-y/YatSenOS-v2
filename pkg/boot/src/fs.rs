@@ -1,9 +1,10 @@
+use crate::App;
+use arrayvec::{ArrayString, ArrayVec};
 use uefi::proto::media::file::*;
 use uefi::proto::media::fs::SimpleFileSystem;
 use uefi::table::boot::*;
+use uefi::Char16;
 use xmas_elf::ElfFile;
-use crate::{ArrayVec, ArrayString};
-use crate::{App, AppList};
 
 /// Open root directory
 pub fn open_root(bs: &BootServices) -> Directory {
@@ -55,79 +56,55 @@ pub fn load_file(bs: &BootServices, file: &mut RegularFile) -> &'static mut [u8]
         info.file_name(),
         len
     );
-
     &mut buf[..len]
-}
-
-/// Free ELF files for which the buffer was created using 'load_file'
-pub fn free_elf(bs: &BootServices, elf: ElfFile) {
-    let buffer = elf.input;
-    let pages = buffer.len() / 0x1000 + 1;
-    let mem_start = buffer.as_ptr() as u64;
-
-    unsafe {
-        bs.free_pages(mem_start, pages).expect("Failed to free pages");
-    }
 }
 
 /// Load apps into memory, when no fs implemented in kernel
 ///
 /// List all file under "APP" and load them.
-pub fn load_apps(bs: &BootServices) -> AppList {
+pub fn load_apps(bs: &BootServices) -> ArrayVec<App<'static>, 16> {
     let mut root = open_root(bs);
+
     let mut buf = [0; 8];
     let cstr_path = uefi::CStr16::from_str_with_buf("\\APP\\", &mut buf).unwrap();
 
-    info!("load_apps_ing...");
-
-    let mut handle: Directory = {
-         /* FIXME: get handle for \APP\ dir */ 
-         root.handle().open(cstr_path, FileMode::Read, FileAttribute::empty())
-            .expect("Failed to open dir").into_directory().expect("not a dir")
-    };
+    let mut handle = root
+        .open(cstr_path, FileMode::Read, FileAttribute::empty())
+        .expect("Failed to open file")
+        .into_directory()
+        .expect("App directory not found");
 
     let mut apps = ArrayVec::new();
-    let mut entry_buf = [0u8; 0x100];
 
-    // place "\\APP\\" in entry_buf
-    trace!("{:#?}", handle);
-    entry_buf[0] = 0x5C; // \
-    entry_buf[1] = 0x41; // A
-    entry_buf[2] = 0x50; // P
-    entry_buf[3] = 0x50; // P
-    entry_buf[4] = 0x5C; // \
+    let mut buffer = [0u8; 0x100];
 
     loop {
         let info = handle
-            .read_entry(&mut entry_buf)
+            .read_entry(&mut buffer)
             .expect("Failed to read entry");
 
         match info {
-            Some(entry) => {
-                let file = { 
-                    /* FIXME: get handle for app binary file */
-                    trace!("open file: {:?}", entry.file_name());
-                    trace!("file info: {:#?}", entry);
-                    // trace!("dir: {:#?}", cstr_path);
-                    handle.open(entry.file_name(), FileMode::Read, FileAttribute::empty())
-                        .expect("Failed to open file")
-                };
+            Some(info) => {
+                // skip when info begin with "."
+                if info.file_name().as_slice()[0] == Char16::try_from('.').unwrap() {
+                    continue;
+                }
+
+                let file = handle
+                    .open(info.file_name(), FileMode::Read, FileAttribute::empty())
+                    .expect("Failed to open file");
 
                 if file.is_directory().unwrap_or(true) {
                     continue;
                 }
 
-                let mut file = file.into_regular_file().expect("not a regular file");
+                let mut file = file.into_regular_file().unwrap();
+                let buf = load_file(bs, &mut file);
 
-                let elf = {
-                    // FIXME: load file with `load_file` function
-                    // FIXME: convert file to `ElfFile`
-                    let file = load_file(bs, &mut file);
-                    ElfFile::new(file).expect("load elf_file error")
-                };
-
+                let elf = ElfFile::new(buf).expect("Failed to parse ELF file");
                 let mut name = ArrayString::<16>::new();
-                entry.file_name().as_str_in_buf(&mut name).unwrap();
+
+                info.file_name().as_str_in_buf(&mut name).unwrap();
 
                 apps.push(App { name, elf });
             }
@@ -138,4 +115,16 @@ pub fn load_apps(bs: &BootServices) -> AppList {
     info!("Loaded {} apps", apps.len());
 
     apps
+}
+
+/// Free ELF files for which the buffer was created using 'load_file'
+pub fn free_elf(bs: &BootServices, elf: ElfFile) {
+    let buffer = elf.input;
+    let pages = buffer.len() / 0x1000 + 1;
+    let mem_start = buffer.as_ptr() as u64;
+
+    unsafe {
+        bs.free_pages(mem_start, pages)
+            .expect("Failed to free pages");
+    }
 }

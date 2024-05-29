@@ -4,14 +4,13 @@ use crate::proc::ProcessId;
 use alloc::{string::String, vec::Vec};
 use x86::cpuid::CpuId;
 
-const MAX_CPU_COUNT: usize = 4;
+const MAX_CPU_COUNT: usize = 8;
 
 #[allow(clippy::declare_interior_mutable_const)]
 const EMPTY: Processor = Processor::new(); // means no process
 
 static PROCESSORS: [Processor; MAX_CPU_COUNT] = [EMPTY; MAX_CPU_COUNT];
 
-/// Returns the current processor based on the current APIC ID
 fn current() -> &'static Processor {
     let cpuid = CpuId::new()
         .get_feature_info()
@@ -34,7 +33,7 @@ pub fn print_processors() -> String {
     )
 }
 
-/// Processor holds the current process id
+/// Processor is a struct to store the current process id.
 pub struct Processor(AtomicU16);
 
 impl Processor {
@@ -49,7 +48,7 @@ pub fn set_pid(pid: ProcessId) {
 }
 
 #[inline]
-pub fn get_pid() -> ProcessId {
+pub fn current_pid() -> ProcessId {
     current().get_pid().expect("No current process")
 }
 

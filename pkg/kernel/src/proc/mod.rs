@@ -1,51 +1,30 @@
-pub mod context;
+mod context;
 mod data;
-pub mod manager;
+mod manager;
 mod paging;
 mod pid;
-pub mod process;
+mod process;
 mod processor;
+mod vm;
+mod sync;
 
-use crate::alloc::string::ToString;
-use alloc::{sync::Arc, vec::Vec};
-use boot::BootInfo;
+use alloc::sync::Arc;
+use alloc::vec::Vec;
 use manager::*;
-use paging::*;
 use process::*;
-use crate::memory::PAGE_SIZE;
-use crate::utils::resource::Resource;
 
-
-use alloc::string::String;
 pub use context::ProcessContext;
-pub use paging::PageTableContext;
 pub use data::ProcessData;
+pub use paging::PageTableContext;
 pub use pid::ProcessId;
+pub use vm::*;
+use xmas_elf::ElfFile;
 
+use alloc::string::{String, ToString};
 use x86_64::structures::idt::PageFaultErrorCode;
 use x86_64::VirtAddr;
 
-use xmas_elf::{program, ElfFile};
-
-// 0xffff_ff00_0000_0000 is the kernel's address space
-pub const STACK_MAX: u64 = 0x0000_4000_0000_0000;
-
-pub const STACK_MAX_PAGES: u64 = 0x100000;
-pub const STACK_MAX_SIZE: u64 = STACK_MAX_PAGES * PAGE_SIZE;
-pub const STACK_START_MASK: u64 = !(STACK_MAX_SIZE - 1);
-// [bot..0x2000_0000_0000..top..0x3fff_ffff_ffff]
-// init stack
-pub const STACK_DEF_PAGE: u64 = 1;
-pub const STACK_DEF_SIZE: u64 = STACK_DEF_PAGE * PAGE_SIZE;
-pub const STACK_INIT_BOT: u64 = STACK_MAX - STACK_DEF_SIZE;
-pub const STACK_INIT_TOP: u64 = STACK_MAX - 8;
-// [bot..0xffffff0100000000..top..0xffffff01ffffffff]
-// kernel stack
-pub const KSTACK_MAX: u64 = 0xffff_ff02_0000_0000;
-pub const KSTACK_DEF_PAGE: u64 = 4096/* FIXME: decide on the boot config */;
-pub const KSTACK_DEF_SIZE: u64 = KSTACK_DEF_PAGE * PAGE_SIZE;
-pub const KSTACK_INIT_BOT: u64 = KSTACK_MAX - KSTACK_DEF_SIZE;
-pub const KSTACK_INIT_TOP: u64 = KSTACK_MAX - 8;
+use self::sync::SemaphoreResult;
 
 pub const KERNEL_PID: ProcessId = ProcessId(1);
 
@@ -59,24 +38,15 @@ pub enum ProgramStatus {
 
 /// init process manager
 pub fn init(boot_info: &'static boot::BootInfo) {
-    let mut kproc_data = ProcessData::new();
+    let proc_vm = ProcessVm::new(PageTableContext::new()).init_kernel_vm();
 
-    // FIXME: set the kernel stack
-    kproc_data.set_stack(VirtAddr::new(KSTACK_INIT_TOP), KSTACK_DEF_SIZE);
-    
-    trace!("Init process data: {:#?}", kproc_data);
+    trace!("Init kernel vm: {:#?}", proc_vm);
 
     // kernel process
-    // let kproc = { /* FIXME: create kernel process */ }: Process;
-    let kproc = Process::new(
-        "kernel".to_string(),
-        None,
-        PageTableContext::new(),
-        Some(kproc_data),
-    );
+    let kproc = Process::new(String::from("kernel"), None, Some(proc_vm), None);
 
-    let app_list = boot_info.loaded_apps.as_ref().expect("No loaded apps");
-
+    kproc.write().resume();
+    let app_list = boot_info.loaded_apps.as_ref();
     manager::init(kproc, app_list);
 
     info!("Process Manager Initialized.");
@@ -84,18 +54,27 @@ pub fn init(boot_info: &'static boot::BootInfo) {
 
 pub fn switch(context: &mut ProcessContext) {
     x86_64::instructions::interrupts::without_interrupts(|| {
-        // FIXME: switch to the next process
-        get_process_manager().save_current(context);
-        get_process_manager().switch_next(context);
+        let manager = get_process_manager();
+        let pid = manager.save_current(context);
+        manager.push_ready(pid);
+        manager.switch_next(context);
     });
 }
 
-// pub fn spawn_kernel_thread(entry: fn() -> !, name: String, data: Option<ProcessData>) -> ProcessId {
-//     x86_64::instructions::interrupts::without_interrupts(|| {
-//         let entry = VirtAddr::new(entry as usize as u64);
-//         get_process_manager().spawn_kernel_thread(entry, name, data)
-//     })
-// }
+pub fn fork(context: &mut ProcessContext) {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let manager = get_process_manager();
+        // FIXME: save_current as parent
+        let parent = manager.save_current(context);
+        // FIXME: fork to get child
+        manager.fork();
+        
+        // FIXME: push to child & parent to ready queue
+        manager.push_ready(parent);
+        manager.switch_next(context);
+        // FIXME: switch to next process
+    })
+}
 
 pub fn print_process_list() {
     x86_64::instructions::interrupts::without_interrupts(|| {
@@ -103,42 +82,93 @@ pub fn print_process_list() {
     })
 }
 
-pub fn get_page_fault_generator() -> ProcessId {
-    x86_64::instructions::interrupts::without_interrupts(|| {
-        get_process_manager().get_page_fault_generator()
-    })
-}
-
 pub fn env(key: &str) -> Option<String> {
     x86_64::instructions::interrupts::without_interrupts(|| {
-        // FIXME: get current process's environment variable
-        // Deref trait 允许一个类型表现得像引用，可以直接访问其内部数据。
         get_process_manager().current().read().env(key)
     })
 }
 
-pub fn wait_pid(pid: ProcessId) -> isize {
-    x86_64::instructions::interrupts::without_interrupts(|| {
-        get_process_manager().get_exit_code(pid).unwrap_or(-1)
-    })
-}
-
-pub fn process_exit(ret: isize) -> ! {
-    x86_64::instructions::interrupts::without_interrupts(|| {
-        get_process_manager().kill_current(ret);
-    });
-
-    loop {
-        x86_64::instructions::hlt();
-    }
-}
-
-pub fn exit(ret: isize, context: &mut ProcessContext) {
+pub fn process_exit(ret: isize, context: &mut ProcessContext) {
     x86_64::instructions::interrupts::without_interrupts(|| {
         let manager = get_process_manager();
-        manager.kill_self(ret); // FIXME: implement this for ProcessManager
+        manager.kill_self(ret);
         manager.switch_next(context);
     })
+}
+
+pub fn wait_pid(pid: ProcessId, context: &mut ProcessContext) {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let manager = get_process_manager();
+        if let Some(ret) = manager.wait_pid(pid) {
+            context.set_rax(ret as usize);
+        } else {
+            manager.save_current(context);
+            manager.current().write().block();
+            manager.switch_next(context);
+        }
+    })
+}
+
+pub(crate) fn wait_no_block(pid: ProcessId) -> Option<isize> {
+    x86_64::instructions::interrupts::without_interrupts(|| get_process_manager().get_ret(pid))
+}
+
+pub fn read(fd: u8, buf: &mut [u8]) -> isize {
+    x86_64::instructions::interrupts::without_interrupts(|| get_process_manager().read(fd, buf))
+}
+
+pub fn write(fd: u8, buf: &[u8]) -> isize {
+    x86_64::instructions::interrupts::without_interrupts(|| get_process_manager().write(fd, buf))
+}
+
+pub fn current_pid() -> ProcessId {
+    x86_64::instructions::interrupts::without_interrupts(processor::current_pid)
+}
+
+pub fn kill(pid: ProcessId, context: &mut ProcessContext) {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let manager = get_process_manager();
+        if pid == processor::current_pid() {
+            manager.kill_self(0xdead);
+            manager.switch_next(context);
+        } else {
+            manager.kill(pid, 0xdead);
+        }
+    })
+}
+
+pub fn spawn(name: &str) -> Result<ProcessId, String> {
+    let app = x86_64::instructions::interrupts::without_interrupts(|| {
+        let app_list = get_process_manager().app_list()?;
+
+        app_list.iter().find(|&app| app.name.eq(name))
+    });
+
+    if app.is_none() {
+        return Err(format!("App not found: {}", name));
+    };
+
+    elf_spawn(name.to_string(), &app.unwrap().elf)
+}
+
+pub fn elf_spawn(name: String, elf: &ElfFile) -> Result<ProcessId, String> {
+    let pid = x86_64::instructions::interrupts::without_interrupts(|| {
+        let manager = get_process_manager();
+        let process_name = name.to_lowercase();
+
+        let parent = Arc::downgrade(&manager.current());
+
+        let pid = manager.spawn(elf, name, Some(parent), None);
+
+        debug!("Spawned process: {}#{}", process_name, pid);
+        pid
+    });
+
+    Ok(pid)
+}
+
+pub fn current_proc_info() {
+    debug!("{:#?}", get_process_manager().current())
 }
 
 pub fn handle_page_fault(addr: VirtAddr, err_code: PageFaultErrorCode) -> bool {
@@ -151,7 +181,7 @@ pub fn list_app() {
     x86_64::instructions::interrupts::without_interrupts(|| {
         let app_list = get_process_manager().app_list();
         if app_list.is_none() {
-            println!("[!] No app found in list!");
+            println!(">>> No app found in list!");
             return;
         }
 
@@ -162,53 +192,64 @@ pub fn list_app() {
             .collect::<Vec<&str>>()
             .join(", ");
 
-        // TODO: print more information like size, entry point, etc.
-
-        println!("[+] App list: {}", apps);
+        println!(">>> App list: {}", apps);
     });
 }
 
-pub fn spawn(name: &str) -> Option<ProcessId> {
-
-    // info!("into spawn");
-
-    let app = x86_64::instructions::interrupts::without_interrupts(|| {
-        let app_list = get_process_manager().app_list()?;
-        app_list.iter().find(|&app| app.name.eq(name))
-    })?;
-    
-
-    trace!("Spawning process: {}...", name);
-    trace!("elf hd: {:#?}", &app.elf.header);
-
-    elf_spawn(name.to_string(), &app.elf)
-}
-
-pub fn elf_spawn(name: String, elf: &ElfFile) -> Option<ProcessId> {
-    let pid = x86_64::instructions::interrupts::without_interrupts(|| {
-        let manager = get_process_manager();
-        let process_name = name.to_lowercase();
-        let parent = Arc::downgrade(&manager.current());
-        let pid = manager.spawn(elf, name, Some(parent), None);
-
-        debug!("Spawned process: {}#{}", process_name, pid);
-        pid
-    });
-
-    Some(pid)
-}
-
-/// get_file_descript_handler
-pub fn handle(fd: u8) -> Option<Resource> {
+pub fn sem_wait(key: u32, context: &mut ProcessContext) {
     x86_64::instructions::interrupts::without_interrupts(|| {
-        get_process_manager().current().read().handle(fd)
+        let manager = get_process_manager();
+        let pid = processor::current_pid();
+        let ret = manager.current().write().sem_wait(key, pid);
+        match ret {
+            SemaphoreResult::Ok => context.set_rax(0),
+            SemaphoreResult::NotExist => context.set_rax(1),
+            SemaphoreResult::Block(_pid) => {
+                // FIXME: save, block it, then switch to next
+                //        use `save_current` and `switch_next`
+                let pid = manager.save_current(context);
+                manager.block(pid);
+                manager.switch_next(context);
+            }
+            _ => unreachable!(),
+        }
     })
 }
 
-#[inline]
-pub fn still_alive(pid: ProcessId) -> bool {
+pub fn sem_signal(key: u32, context: &mut ProcessContext) {
     x86_64::instructions::interrupts::without_interrupts(|| {
-        // check if the process is still alive
-        get_process_manager().still_alive(pid)
+        let manager = get_process_manager();
+        let pid = processor::current_pid();
+        let ret = manager.current().write().sem_signal(key);
+        match ret {
+            SemaphoreResult::Ok => context.set_rax(0),
+            SemaphoreResult::NotExist => context.set_rax(1),
+            SemaphoreResult::WakeUp(pid) => manager.wake_up(pid, 0),
+            _ => unreachable!(),
+        }
+    })
+}
+
+pub fn new_sem(key: u32, init: usize) -> usize {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let manager = get_process_manager();
+        let ret = manager.current().write().sem_new(key, init);
+        if ret {
+            0
+        } else {
+            1
+        }
+    })
+}
+
+pub fn remove_sem(key: u32) -> usize {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let manager = get_process_manager();
+        let ret = manager.current().write().sem_remove(key);
+        if ret {
+            0
+        } else {
+            1
+        }
     })
 }

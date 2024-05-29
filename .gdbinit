@@ -1,4 +1,6 @@
 file esp/KERNEL.ELF
-gef-remote localhost 1234
-tmux-setup
-b _start
+set architecture i386:x86-64
+# for macos
+gef-remote host.orb.internal 1234
+# for linux
+# gef-remote localhost 1234

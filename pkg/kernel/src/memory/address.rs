@@ -9,7 +9,6 @@ pub fn init(boot_info: &'static boot::BootInfo) {
     info!("Physical Offset  : {:#x}", PHYSICAL_OFFSET.get().unwrap());
 }
 
-/// Convert a virtual address to a physical address.
 #[inline(always)]
 pub fn physical_to_virtual(addr: u64) -> u64 {
     addr + PHYSICAL_OFFSET

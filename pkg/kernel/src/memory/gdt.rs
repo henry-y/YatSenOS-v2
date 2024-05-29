@@ -5,23 +5,20 @@ use x86_64::structures::tss::TaskStateSegment;
 use x86_64::VirtAddr;
 
 pub const DOUBLE_FAULT_IST_INDEX: u16 = 0;
-pub const PAGE_FAULT_IST_INDEX: u16 = 1;
-pub const CLOCK_INTERRUPT_IST_INDEX: u16 = 2;
-pub const SYSCALL_IST_INDEX: u16 = 3;
+pub const SYSCALL_IST_INDEX: u16 = 1;
+pub const PAGE_FAULT_IST_INDEX: u16 = 2;
+pub const CONTEXT_SWITCH_IST_INDEX: u16 = 0;
 
-pub const IST_SIZES: [usize; 4] = [0x1000, 0x1000, 0x1000, 0x8000];
+pub const IST_SIZES: [usize; 4] = [0x1000, 0x1000, 0x4000, 0x1000];
 
 lazy_static! {
     static ref TSS: TaskStateSegment = {
         let mut tss = TaskStateSegment::new();
-
-        // initialize the TSS with the static buffers
-        // will be allocated on the bss section when the kernel is load
         tss.privilege_stack_table[0] = {
             const STACK_SIZE: usize = IST_SIZES[0];
             static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
             let stack_start = VirtAddr::from_ptr(unsafe { STACK.as_ptr() });
-            let stack_end = stack_start + STACK_SIZE;
+            let stack_end = stack_start + STACK_SIZE as u64;
             info!(
                 "Privilege Stack  : 0x{:016x}-0x{:016x}",
                 stack_start.as_u64(),
@@ -29,15 +26,11 @@ lazy_static! {
             );
             stack_end
         };
-
-        // FIXME: fill tss.interrupt_stack_table with the static stack buffers like above
-        // You can use `tss.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX as usize]`
-
         tss.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX as usize] = {
-            const STACK_SIZE: usize = IST_SIZES[DOUBLE_FAULT_IST_INDEX as usize];
+            const STACK_SIZE: usize = IST_SIZES[1];
             static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
             let stack_start = VirtAddr::from_ptr(unsafe { STACK.as_ptr() });
-            let stack_end = stack_start + STACK_SIZE;
+            let stack_end = stack_start + STACK_SIZE as u64;
             info!(
                 "Double Fault IST : 0x{:016x}-0x{:016x}",
                 stack_start.as_u64(),
@@ -45,12 +38,23 @@ lazy_static! {
             );
             stack_end
         };
-
-        tss.interrupt_stack_table[PAGE_FAULT_IST_INDEX as usize] = {
-            const STACK_SIZE: usize = IST_SIZES[PAGE_FAULT_IST_INDEX as usize];
+        tss.interrupt_stack_table[SYSCALL_IST_INDEX as usize] = {
+            const STACK_SIZE: usize = IST_SIZES[2];
             static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
             let stack_start = VirtAddr::from_ptr(unsafe { STACK.as_ptr() });
-            let stack_end = stack_start + STACK_SIZE;
+            let stack_end = stack_start + STACK_SIZE as u64;
+            info!(
+                "Syscall IST      : 0x{:016x}-0x{:016x}",
+                stack_start.as_u64(),
+                stack_end.as_u64()
+            );
+            stack_end
+        };
+        tss.interrupt_stack_table[PAGE_FAULT_IST_INDEX as usize] = {
+            const STACK_SIZE: usize = IST_SIZES[3];
+            static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
+            let stack_start = VirtAddr::from_ptr(unsafe { STACK.as_ptr() });
+            let stack_end = stack_start + STACK_SIZE as u64;
             info!(
                 "Page Fault IST   : 0x{:016x}-0x{:016x}",
                 stack_start.as_u64(),
@@ -58,34 +62,6 @@ lazy_static! {
             );
             stack_end
         };
-
-        // 时钟中断栈
-        tss.interrupt_stack_table[CLOCK_INTERRUPT_IST_INDEX as usize] = {
-            const STACK_SIZE: usize = IST_SIZES[CLOCK_INTERRUPT_IST_INDEX as usize];
-            static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
-            let stack_start = VirtAddr::from_ptr(unsafe { STACK.as_ptr() });
-            let stack_end = stack_start + STACK_SIZE;
-            info!(
-                "Clock interrupt IST : 0x{:016x}-0x{:016x}",
-                stack_start.as_u64(),
-                stack_end.as_u64()
-            );
-            stack_end
-        };
-        
-        tss.interrupt_stack_table[SYSCALL_IST_INDEX as usize] = {
-            const STACK_SIZE: usize = IST_SIZES[SYSCALL_IST_INDEX as usize];
-            static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
-            let stack_start = VirtAddr::from_ptr(unsafe { STACK.as_ptr() });
-            let stack_end = stack_start + STACK_SIZE;
-            info!(
-                "Clock interrupt IST : 0x{:016x}-0x{:016x}",
-                stack_start.as_u64(),
-                stack_end.as_u64()
-            );
-            stack_end
-        };
-
         tss
     };
 }
@@ -93,13 +69,11 @@ lazy_static! {
 lazy_static! {
     static ref GDT: (GlobalDescriptorTable, KernelSelectors, UserSelectors) = {
         let mut gdt = GlobalDescriptorTable::new();
-        let code_selector = gdt.add_entry(Descriptor::kernel_code_segment());
-        let data_selector = gdt.add_entry(Descriptor::kernel_data_segment());
-        let tss_selector = gdt.add_entry(Descriptor::tss_segment(&TSS));
-        
-        let user_code_selector = gdt.add_entry(Descriptor::user_code_segment());
-        let user_data_selector = gdt.add_entry(Descriptor::user_data_segment());
-        
+        let code_selector = gdt.append(Descriptor::kernel_code_segment());
+        let data_selector = gdt.append(Descriptor::kernel_data_segment());
+        let tss_selector = gdt.append(Descriptor::tss_segment(&TSS));
+        let user_code_selector = gdt.append(Descriptor::user_code_segment());
+        let user_data_selector = gdt.append(Descriptor::user_data_segment());
         (
             gdt,
             KernelSelectors {
@@ -108,25 +82,24 @@ lazy_static! {
                 tss_selector,
             },
             UserSelectors {
-                code_selector: user_code_selector,
-                data_selector: user_data_selector,
-            }
+                user_code_selector,
+                user_data_selector,
+            },
         )
     };
 }
 
 #[derive(Debug)]
-pub struct KernelSelectors {
-    pub code_selector: SegmentSelector,
-    pub data_selector: SegmentSelector,
+struct KernelSelectors {
+    code_selector: SegmentSelector,
+    data_selector: SegmentSelector,
     tss_selector: SegmentSelector,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct UserSelectors {
-    pub code_selector: SegmentSelector,
-    pub data_selector: SegmentSelector,
-    // Question: 需要 tss 吗 
+    pub user_code_selector: SegmentSelector,
+    pub user_data_selector: SegmentSelector,
 }
 
 pub fn init() {
@@ -151,16 +124,12 @@ pub fn init() {
         size += s;
     }
 
-    let (size, unit) = super::humanized_size(size as u64);
+    let (size, unit) = crate::humanized_size(size as u64);
     info!("Kernel IST Size  : {:>7.*} {}", 3, size, unit);
 
     info!("GDT Initialized.");
 }
 
-pub fn get_selector() -> &'static KernelSelectors {
-    &GDT.1
-}
-
-pub fn get_user_selector() -> &'static UserSelectors {
-    &GDT.2
+pub fn get_user_selector() -> UserSelectors {
+    GDT.2
 }

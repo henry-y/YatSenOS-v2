@@ -1,18 +1,6 @@
-use super::ProcessId;
 use super::*;
-use crate::memory;
-use crate::memory::*;
-use alloc::string::String;
-use alloc::sync::Arc;
 use alloc::sync::Weak;
-use alloc::vec::Vec;
 use spin::*;
-use x86_64::structures::paging::mapper::MapToError;
-use x86_64::structures::paging::page::PageRange;
-use x86_64::structures::paging::*;
-use x86_64::VirtAddr;
-use elf;
-
 
 #[derive(Clone)]
 pub struct Process {
@@ -26,10 +14,11 @@ pub struct ProcessInner {
     children: Vec<Arc<Process>>,
     ticks_passed: usize,
     status: ProgramStatus,
-    exit_code: Option<isize>,
     context: ProcessContext,
-    page_table: Option<PageTableContext>,
+    exit_code: Option<isize>,
     proc_data: Option<ProcessData>,
+    proc_vm: Option<ProcessVm>,
+
 }
 
 impl Process {
@@ -51,13 +40,14 @@ impl Process {
     pub fn new(
         name: String,
         parent: Option<Weak<Process>>,
-        page_table: PageTableContext,
+        proc_vm: Option<ProcessVm>,
         proc_data: Option<ProcessData>,
     ) -> Arc<Self> {
         let name = name.to_ascii_lowercase();
 
         // create context
         let pid = ProcessId::new();
+        let proc_vm = proc_vm.unwrap_or_else(|| ProcessVm::new(PageTableContext::new()));
 
         let inner = ProcessInner {
             name,
@@ -67,7 +57,7 @@ impl Process {
             ticks_passed: 0,
             exit_code: None,
             children: Vec::new(),
-            page_table: Some(page_table),
+            proc_vm: Some(proc_vm),
             proc_data: Some(proc_data.unwrap_or_default()),
         };
 
@@ -79,6 +69,7 @@ impl Process {
             inner: Arc::new(RwLock::new(inner)),
         })
     }
+
 
     pub fn kill(&self, ret: isize) {
         let mut inner = self.inner.write();
@@ -93,41 +84,35 @@ impl Process {
         inner.kill(ret);
     }
 
-    pub fn alloc_init_stack(&self) -> VirtAddr {
-        // FIXME: alloc init stack base on self pid
-        // 4GiB = 0x1000_0000
-        // 2MiB = 0x200_000
-        let pid : u16 = self.pid().into();
-        let vaddr = STACK_INIT_BOT - (pid - 1) as u64 * 0x1_0000_0000;
-        trace!("Alloc init stack: pid:{}: {:#?}", pid, vaddr);
-        trace!("the all stack range is: [{:#x},{:#x})", 
-            STACK_MAX - (pid) as u64 * 0x1_0000_0000, 
-            STACK_MAX - (pid-1) as u64 * 0x1_0000_0000);
-        let frame_allocator = 
-            &mut *get_frame_alloc_for_sure();
-        
-        trace!("get_frame_allocator succ...");
+    pub fn fork(self: &Arc<Self>) -> Arc<Self> {
+        // FIXME: lock inner as write
+        let mut inner = self.write();
 
-        let page_range = 
-            elf::map_range(vaddr, STACK_DEF_PAGE, 
-            &mut self.read().page_table.as_ref().unwrap().mapper(), 
-            frame_allocator, 
-            false);
+        // FIXME: inner fork with parent weak ref
+        let child_inner = inner.fork(Arc::downgrade(self));
+        let child_pid = ProcessId::new();
+        // FOR DBG: maybe print the child process info
+        //          e.g. parent, name, pid, etc.
 
-        trace!("mapper succ...");
-        
-        let rt_addr = page_range.unwrap();
+        info!("Forked process {}#{}", child_inner.name(), child_pid);
+        info!("Parent process {}#{}", inner.name(), self.pid().0);
 
-        self.write().set_stack(rt_addr.start.start_address(), STACK_DEF_PAGE);
-        self.write().set_max_stack(VirtAddr::new(STACK_MAX - (pid) as u64 * 0x1_0000_0000), 
-                                    VirtAddr::new(STACK_MAX - (pid-1) as u64 * 0x1_0000_0000));
-        // 对页面进行加，而不是对addr进行加，重载了加法
+        inner.pause();
+        // FIXME: make the arc of child
+        let child = Arc::new(Self {
+            pid: child_pid,
+            inner: Arc::new(RwLock::new(child_inner)),
+        });
+        // FIXME: add child to current process's children list
+        inner.children.push(child.clone());
+        // FIXME: set fork ret value for parent with `context.set_rax`
+        inner.context.set_rax(child.pid().0 as usize);
+        drop(inner);
 
-        // trace!("Alloc init stack's begin is: {:#?}", rt_addr.end.start_address());
-        // trace!("stack range is: [{:#x},{:#x})", rt_addr.start.start_address(), rt_addr.start.start_address()+STACK_DEF_SIZE);
-        // trace!("vaddr is {:#x}", vaddr);
-        rt_addr.end.start_address()
+        // FIXME: mark the child as ready & return it
+        child
     }
+
 }
 
 impl ProcessInner {
@@ -151,78 +136,59 @@ impl ProcessInner {
         self.status = ProgramStatus::Running;
     }
 
-    pub fn exit_code(&self) -> Option<isize> {
-        self.exit_code
-    }
-
-    pub fn clone_page_table(&self) -> PageTableContext {
-        self.page_table.as_ref().unwrap().clone()
+    pub fn block(&mut self) {
+        self.status = ProgramStatus::Blocked;
     }
 
     pub fn is_ready(&self) -> bool {
         self.status == ProgramStatus::Ready
     }
 
-    pub fn set_init_stack(&mut self, stack_top: VirtAddr, entry: VirtAddr) {
-        self.context.init_stack_frame(entry, stack_top)
+    pub fn exit_code(&self) -> Option<isize> {
+        self.exit_code
     }
 
-    pub fn set_user_init_stack(&mut self, stack_top: VirtAddr, entry: VirtAddr) {
-        self.context.init_user_stack_frame(entry, stack_top)
+    pub fn vm(&self) -> &ProcessVm {
+        self.proc_vm.as_ref().unwrap()
     }
 
-    pub fn update_stack_frame(&mut self, visit_addr: VirtAddr, user_access: bool) {
-        let now_begin = self.stack_segment.unwrap().start.start_address();
-        let visit_page = Page::<Size4KiB>::containing_address(visit_addr);
-        let top_page = Page::<Size4KiB>::containing_address(now_begin);
-        let page_count = top_page - visit_page;
-
-        // debug!("Update stack frame: {:#x}, {:#x}, {:#x}", 
-        //     visit_page.start_address(), top_page.start_address(), 
-        //     page_count);
-
-        self.expand(visit_page.start_address(), page_count, user_access);
-
-        self.stack_segment = Some(Page::range(visit_page, self.stack_segment.unwrap().end));
+    pub fn vm_mut(&mut self) -> &mut ProcessVm {
+        self.proc_vm.as_mut().unwrap()
     }
 
-    fn expand(&self, start: VirtAddr, count: u64, user_access: bool) {
-        let frame_allocator = 
-            &mut *get_frame_alloc_for_sure();
+    pub fn handle_page_fault(&mut self, addr: VirtAddr) -> bool {
+        self.vm_mut().handle_page_fault(addr)
+    }
 
-        elf::map_range(start.as_u64(), 
-            count, 
-            &mut self.page_table.as_ref().unwrap().mapper(), 
-            frame_allocator,
-            user_access).expect("map range err");
+    pub fn set_return_value(&mut self, ret: isize) {
+        self.context.set_rax(ret as usize);
+    }
+
+    pub fn clone_page_table(&self) -> PageTableContext {
+        self.vm().page_table.clone_level_4()
+    }
+
+    pub fn load_elf(&mut self, elf: &ElfFile) {
+        self.vm_mut().load_elf(elf)
     }
 
     /// Save the process's context
     /// mark the process as ready
     pub(super) fn save(&mut self, context: &ProcessContext) {
-        // FIXME: save the process's context
         self.context.save(context);
-        if self.status != ProgramStatus::Dead {
-            // 注意这里的逻辑，最后啥都做完的时候卡了两小时就是因为这里save的时候没判断是否dead
-            self.pause();
-        }
+        self.status = ProgramStatus::Ready;
     }
 
     /// Restore the process's context
     /// mark the process as running
     pub(super) fn restore(&mut self, context: &mut ProcessContext) {
-        // FIXME: restore the process's context
         self.context.restore(context);
-        
-        // trace!("Restoring process {}, is dead?: {}, is_ready? {}", self.name(), 
-        //    self.status == ProgramStatus::Dead, self.is_ready());
-            
-        // FIXME: restore the process's page table
-        self.page_table.as_ref().expect("get_page_table_err").load();
-        
-        if self.status != ProgramStatus::Dead {
-            self.resume();
-        }
+        self.vm().page_table.load();
+        self.status = ProgramStatus::Running;
+    }
+
+    pub fn init_stack_frame(&mut self, entry: VirtAddr, stack_top: VirtAddr) {
+        self.context.init_stack_frame(entry, stack_top)
     }
 
     pub fn parent(&self) -> Option<Arc<Process>> {
@@ -230,40 +196,44 @@ impl ProcessInner {
     }
 
     pub fn kill(&mut self, ret: isize) {
-        // FIXME: set exit code
+        self.proc_vm.take();
+        self.proc_data.take();
         self.exit_code = Some(ret);
-        // FIXME: set status to dead
         self.status = ProgramStatus::Dead;
-        // FIXME: take and drop unused resources
-        drop(self.page_table.take());
-        drop(self.proc_data.take());
-        trace!("Process {} is dead., status: {:?}", self.name(), self.status);
     }
 
-    /// load elf to process pagetable
-    pub fn load_elf(&mut self, elf: &ElfFile) -> Result<(), MapToError<Size4KiB>> {
+    pub fn fork(&mut self, parent: Weak<Process>) -> ProcessInner {
+        // 这里不能改self，因为self是从上面的inner继承来的，实际还是在一个parent里面
+        // 应该返回一个构造而不是Self
 
-        let frame_allocator = &mut *get_frame_alloc_for_sure();
-        let mut mapper = self.page_table.as_ref().unwrap().mapper();
-        
-        let code_segments = elf::load_elf(
-            elf,
-            *PHYSICAL_OFFSET.get().unwrap(),
-            &mut mapper,
-            frame_allocator,
-            true,
-        ).unwrap();
-        
-        let stack_segment = elf::map_range(STACK_INIT_BOT,
-            STACK_DEF_PAGE, &mut mapper, frame_allocator, true).unwrap();
-    
-        self.set_stack(stack_segment.start.start_address(), STACK_DEF_PAGE);
-        self.set_max_stack(VirtAddr::new(STACK_INIT_TOP - 0x1_0000_0000), 
-            VirtAddr::new(STACK_INIT_TOP+8));
+        // FIXME: fork the process virtual memory struct
+        // FIXME: calculate the real stack offset
+        let new_vm = self.vm().fork(self.children.len() as u64);
+        let offset = new_vm.stack.stack_offset(&self.vm().stack);
 
-        Ok(())
+        // FIXME: update `rsp` in interrupt stack frame
+        // FIXME: set the return value 0 for child with `context.set_rax`
+        // FIXME: clone the process data struct
+        let mut new_context = self.context;
+        new_context.set_stack_offset(offset);
+        new_context.set_rax(0);
+
+        // FIXME: construct the child process inner
+        // NOTE: return inner because there's no pid record in inner
+        Self {
+            name: self.name.clone(),
+            parent: Some(parent),
+            children: Vec::new(),
+            ticks_passed: 0,
+            status: ProgramStatus::Ready,
+            context: new_context,
+            exit_code: None,
+            proc_data: self.proc_data.clone(),
+            proc_vm: Some(new_vm),
+        }
+
     }
-    
+
 
 }
 
@@ -295,47 +265,32 @@ impl core::ops::DerefMut for ProcessInner {
 
 impl core::fmt::Debug for Process {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        let mut f = f.debug_struct("Process");
-        f.field("pid", &self.pid);
-
         let inner = self.inner.read();
-        f.field("name", &inner.name);
-        f.field("parent", &inner.parent().map(|p| p.pid));
-        f.field("status", &inner.status);
-        f.field("ticks_passed", &inner.ticks_passed);
-        f.field(
-            "children",
-            &inner.children.iter().map(|c| c.pid.0).collect::<Vec<u16>>(),
-        );
-        f.field("page_table", &inner.page_table);
-        f.field("status", &inner.status);
-        f.field("context", &inner.context);
-        f.field("stack", &inner.proc_data.as_ref().map(|d| d.stack_segment));
-        f.finish()
+        f.debug_struct("Process")
+            .field("pid", &self.pid)
+            .field("name", &inner.name)
+            .field("parent", &inner.parent().map(|p| p.pid))
+            .field("status", &inner.status)
+            .field("ticks_passed", &inner.ticks_passed)
+            .field("children", &inner.children.iter().map(|c| c.pid.0))
+            .field("status", &inner.status)
+            .field("context", &inner.context)
+            .field("vm", &inner.proc_vm)
+            .finish()
     }
 }
 
 impl core::fmt::Display for Process {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         let inner = self.inner.read();
-
-        let (memory, unit) = inner.proc_data.as_ref().map(|d| {
-            let pages = d.get_stack_page();
-            let size = pages * PAGE_SIZE;
-
-            memory::humanized_size(size)
-        }).unwrap_or((0f64, "B"));
-
         write!(
             f,
-            " #{:-3} | #{:-3} | {:12} | {:7} | {:?} | {:?} {}",
+            " #{:-3} | #{:-3} | {:12} | {:7} | {:?}",
             self.pid.0,
             inner.parent().map(|p| p.pid.0).unwrap_or(0),
             inner.name,
             inner.ticks_passed,
-            inner.status,
-            memory,
-            unit
+            inner.status
         )?;
         Ok(())
     }

@@ -10,16 +10,22 @@ pub enum Syscall {
     Read = 0,
     Write = 1,
 
+    GetPid = 39,
+
+    Fork = 58,
     Spawn = 59,
     Exit = 60,
     WaitPid = 61,
+    Kill = 62,
+    Sem = 63,
 
-    ListDir = 65530,
-    ListApp = 65531,
-    Stat = 65532,
+    Time = 201,
+
+    ListApp = 65529,
+    Stat = 65530,
     Allocate = 65533,
     Deallocate = 65534,
 
     #[num_enum(default)]
-    Unknown = 65535,
+    None = 65535,
 }

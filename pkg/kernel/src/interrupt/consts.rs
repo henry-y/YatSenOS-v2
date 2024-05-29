@@ -1,3 +1,4 @@
+#![allow(non_upper_case_globals, dead_code)]
 // This is from https://github.com/rcore-os/rCore/blob/master/kernel/src/arch/x86_64/interrupt/consts.rs
 // Reference: https://wiki.osdev.org/Exceptions
 

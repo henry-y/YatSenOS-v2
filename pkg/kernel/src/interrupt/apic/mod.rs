@@ -14,6 +14,7 @@ pub use xapic::{XApic, LAPIC_ADDR};
 mod ioapic;
 mod xapic;
 
+#[allow(dead_code)]
 pub trait LocalApic {
     /// If this type APIC is supported
     fn support() -> bool;
@@ -29,8 +30,14 @@ pub trait LocalApic {
     /// Interrupt Command Register
     fn icr(&self) -> u64;
 
+    /// Set Interrupt Command Register
     fn set_icr(&mut self, value: u64);
 
     /// Acknowledge interrupt on the current CPU
     fn eoi(&mut self);
+
+    /// Send an IPI to a remote CPU
+    fn send_ipi(&mut self, apic_id: u8, int_id: u8) {
+        self.set_icr((apic_id as u64) << 56 | int_id as u64);
+    }
 }
