@@ -11,20 +11,29 @@ static WAITER: Semaphore = Semaphore::new(5);
 
 fn dinner(set: u16) {
 
-    WAITER.wait(); // 进入餐厅
+    // WAITER.wait(); // 进入餐厅
 
     let left: usize = set as usize;
     let right: usize = ((set + 1) % 5) as usize;
+    if set % 2 == 0 {
+        CHOPSTICK[left].wait();
+        CHOPSTICK[right].wait();
 
-    CHOPSTICK[left].wait();
-    CHOPSTICK[right].wait();
+        println!("Philosopher {} is eating", set);
 
-    println!("Philosopher {} is eating", set);
+        CHOPSTICK[right].signal();
+        CHOPSTICK[left].signal();
+    } else {
+        CHOPSTICK[right].wait();
+        CHOPSTICK[left].wait();
 
-    CHOPSTICK[right].signal();
-    CHOPSTICK[left].signal();
+        println!("Philosopher {} is eating", set);
 
-    WAITER.signal(); // 离开餐厅
+        CHOPSTICK[left].signal();
+        CHOPSTICK[right].signal();
+    }
+
+    // WAITER.signal(); // 离开餐厅
 
 }
 

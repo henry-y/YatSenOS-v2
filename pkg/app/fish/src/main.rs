@@ -47,15 +47,6 @@ fn print(id: usize) {
 
                 PROCESS[0].signal();
 
-                PROCESS[1].wait();
-                WAITER.wait();
-
-                print!("<");
-                // sleep(100);
-
-                WAITER.signal();
-                PROCESS[2].signal();
-
                 idx += 1;
 
             }
@@ -65,20 +56,11 @@ fn print(id: usize) {
                 PROCESS[2].wait();
                 WAITER.wait();
 
-                print!("=");
+                print!("_");
                 // sleep(100);
 
                 WAITER.signal();
                 PROCESS[0].signal();
-
-                PROCESS[2].wait();
-                WAITER.wait();
-
-                print!("=");
-                // sleep(100);
-
-                WAITER.signal();
-                PROCESS[1].signal();
 
                 idx += 1;
 
@@ -87,6 +69,7 @@ fn print(id: usize) {
             _ => unreachable!()
         }
         idx += 1;
+        // println!("set {}, idx {}", id, idx);
     }
 }
 
@@ -108,11 +91,14 @@ fn main() -> isize {
         }
     }
 
+    PROCESS[0].signal();
+
     for i in 0..3 {
         sys_wait_pid(pids[i]);
     }
 
-    println!("fish test done!");
+
+    println!("\nfish test done!");
     0
 
 }
