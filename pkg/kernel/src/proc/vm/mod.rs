@@ -61,8 +61,13 @@ impl ProcessVm {
     /// NOTE: this function should only be called by the first process
     // pub fn init_kernel_vm(mut self, pages: &KernelPages) -> Self {
     //     // FIXME: record kernel code usage
-    //     self.code = /* The kernel pages */;
-    //     self.code_usage = /* The kernel code usage */;
+    //     let mut size = 0;
+    //     let pages = pages.iter().map(|page| {
+    //         size += page.count();
+    //         *page
+    //     }).collect();
+    //     self.code = pages;
+    //     self.code_usage = size as u64 * crate::memory::PAGE_SIZE;
 
     //     self.stack = Stack::kstack();
 
@@ -70,6 +75,11 @@ impl ProcessVm {
 
     //     self
     // }
+    
+    pub fn init_kernel_vm(mut self) -> Self {
+        self.stack = Stack::kstack();
+        self
+    }
 
     pub fn brk(&mut self, addr: Option<VirtAddr>) -> Option<VirtAddr> {
         self.heap.brk(
@@ -94,7 +104,8 @@ impl ProcessVm {
             elf::load_elf(elf, *PHYSICAL_OFFSET.get().unwrap(), mapper, alloc, true).unwrap();
 
         // FIXME: calculate code usage
-        self.code_usage = /* The code usage */;
+        self.code_usage = self.code.iter().map(|range| range.count()).sum::<usize>() as u64 * crate::memory::PAGE_SIZE;
+
     }
 
     pub fn fork(&self, stack_offset_count: u64) -> Self {
@@ -125,37 +136,37 @@ impl ProcessVm {
         self.stack.memory_usage() + self.heap.memory_usage() + self.code_usage
     }
 
-    pub(super) fn clean_up(&mut self) -> Result<(), UnmapError> {
-        let mapper = &mut self.page_table.mapper();
-        let dealloc = &mut *get_frame_alloc_for_sure();
+    // pub(super) fn clean_up(&mut self) -> Result<(), UnmapError> {
+    //     let mapper = &mut self.page_table.mapper();
+    //     let dealloc = &mut *get_frame_alloc_for_sure();
 
-        // FIXME: implement the `clean_up` function for `Stack`
-        self.stack.clean_up(mapper, dealloc)?;
+    //     // FIXME: implement the `clean_up` function for `Stack`
+    //     self.stack.clean_up(mapper, dealloc)?;
 
-        if self.page_table.using_count() == 1 {
-            // free heap
-            // FIXME: implement the `clean_up` function for `Heap`
-            self.heap.clean_up(mapper, dealloc)?;
+    //     if self.page_table.using_count() == 1 {
+    //         // free heap
+    //         // FIXME: implement the `clean_up` function for `Heap`
+    //         self.heap.clean_up(mapper, dealloc)?;
 
-            // free code
-            for page_range in self.code.iter() {
-                elf::unmap_range(*page_range, mapper, dealloc, true)?;
-            }
+    //         // free code
+    //         for page_range in self.code.iter() {
+    //             elf::unmap_range(*page_range, mapper, dealloc, true)?;
+    //         }
 
-            unsafe {
-                // free P1-P3
-                mapper.clean_up(dealloc);
+    //         unsafe {
+    //             // free P1-P3
+    //             mapper.clean_up(dealloc);
 
-                // free P4
-                dealloc.deallocate_frame(self.page_table.reg.addr);
-            }
-        }
+    //             // free P4
+    //             dealloc.deallocate_frame(self.page_table.reg.addr);
+    //         }
+    //     }
 
-        // NOTE: maybe print how many frames are recycled
-        //       **you may need to add some functions to `BootInfoFrameAllocator`**
+    //     // NOTE: maybe print how many frames are recycled
+    //     //       **you may need to add some functions to `BootInfoFrameAllocator`**
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 }
 
 impl core::fmt::Debug for ProcessVm {
