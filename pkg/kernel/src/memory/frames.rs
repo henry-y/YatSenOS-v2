@@ -1,6 +1,7 @@
 // reference: https://github.com/phil-opp/blog_os/blob/post-09/src/memory.rs
 // reference: https://github.com/xfoxfu/rust-xos/blob/main/kernel/src/memory.rs
 
+use alloc::vec::Vec;
 use boot::{MemoryMap, MemoryType};
 use x86_64::structures::paging::{FrameAllocator, FrameDeallocator, PhysFrame, Size4KiB};
 use x86_64::PhysAddr;
@@ -18,6 +19,7 @@ pub struct BootInfoFrameAllocator {
     size: usize,
     used: usize,
     frames: BootInfoFrameIter,
+    recycle: Vec<PhysFrame>,
 }
 
 impl BootInfoFrameAllocator {
@@ -33,6 +35,7 @@ impl BootInfoFrameAllocator {
             size,
             frames: create_frame_iter(memory_map),
             used: 0,
+            recycle: Vec::new()
         }
     }
 
@@ -47,14 +50,19 @@ impl BootInfoFrameAllocator {
 
 unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
     fn allocate_frame(&mut self) -> Option<PhysFrame> {
-        self.used += 1;
-        self.frames.next()
+        if let Some(frame) = self.recycle.pop() {
+            Some(frame)
+        } else {
+            self.used += 1;
+            self.frames.next()
+        }
     }
 }
 
 impl FrameDeallocator<Size4KiB> for BootInfoFrameAllocator {
-    unsafe fn deallocate_frame(&mut self, _frame: PhysFrame) {
+    unsafe fn deallocate_frame(&mut self, frame: PhysFrame) {
         // TODO: deallocate frame
+        self.recycle.push(frame);
     }
 }
 
