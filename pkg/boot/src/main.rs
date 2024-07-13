@@ -8,6 +8,7 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 use alloc::vec;
+use ysos_boot::KernelPages;
 use core::arch::asm;
 use uefi::prelude::*;
 use x86_64::registers::control::*;
@@ -91,7 +92,7 @@ fn efi_main(image: uefi::Handle, mut system_table: SystemTable<Boot>) -> Status 
         &mut UEFIFrameAllocator(bs),
     );
 
-    elf::load_elf(
+    let kernel_pages = elf::load_elf(
         &elf,
         config.physical_memory_offset,
         &mut page_table,
@@ -132,10 +133,13 @@ fn efi_main(image: uefi::Handle, mut system_table: SystemTable<Boot>) -> Status 
 
     // 5. Exit boot and jump to ELF entry
     info!("Exiting boot services...");
+    info!("kernel_pages length is {}", kernel_pages.len());
 
     let (runtime, mmap) = system_table.exit_boot_services(MemoryType::LOADER_DATA);
     // NOTE: alloc & log can no longer be used
 
+    let kernel_pages: KernelPages = kernel_pages.iter().map(|range| *range).collect();
+    
     // construct BootInfo
     let bootinfo = BootInfo {
         memory_map: mmap.entries().copied().collect(),
@@ -143,6 +147,7 @@ fn efi_main(image: uefi::Handle, mut system_table: SystemTable<Boot>) -> Status 
         system_table: runtime,
         loaded_apps: apps,
         log_level: config.log_level,
+        kernel_pages: kernel_pages,
     };
 
     // align stack to 8 bytes

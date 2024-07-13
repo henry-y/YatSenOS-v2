@@ -9,6 +9,7 @@ pub use uefi::table::Runtime;
 pub use uefi::Status as UefiStatus;
 
 use arrayvec::{ArrayString, ArrayVec};
+use x86_64::structures::paging::page::PageRangeInclusive;
 use xmas_elf::ElfFile;
 
 pub mod allocator;
@@ -19,7 +20,7 @@ pub mod fs;
 extern crate log;
 
 pub type MemoryMap = ArrayVec<MemoryDescriptor, 256>;
-
+pub type KernelPages = ArrayVec<PageRangeInclusive, 8>;
 pub type AppListRef = Option<&'static ArrayVec<App<'static>, 16>>;
 
 /// This structure represents the information that the bootloader passes to the kernel.
@@ -38,6 +39,9 @@ pub struct BootInfo {
 
     // Log Level
     pub log_level: &'static str,
+
+    // Kernel pages
+    pub kernel_pages: KernelPages,    
 }
 
 /// App information

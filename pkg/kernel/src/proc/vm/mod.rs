@@ -1,4 +1,5 @@
 use alloc::{format, vec::Vec};
+use boot::KernelPages;
 use x86_64::{
     structures::paging::{
         mapper::{CleanUp, UnmapError},
@@ -59,28 +60,23 @@ impl ProcessVm {
     /// Initialize kernel vm
     ///
     /// NOTE: this function should only be called by the first process
-    // pub fn init_kernel_vm(mut self, pages: &KernelPages) -> Self {
-    //     // FIXME: record kernel code usage
-    //     let mut size = 0;
-    //     let pages = pages.iter().map(|page| {
-    //         size += page.count();
-    //         *page
-    //     }).collect();
-    //     self.code = pages;
-    //     self.code_usage = size as u64 * crate::memory::PAGE_SIZE;
+    pub fn init_kernel_vm(mut self, pages: &KernelPages) -> Self {
+        // FIXME: record kernel code usage
+        let mut size = 0;
+        let pages = pages.iter().map(|page| {
+            size += page.count();
+            *page
+        }).collect();
+        self.code = pages;
+        self.code_usage = size as u64 * crate::memory::PAGE_SIZE;
 
-    //     self.stack = Stack::kstack();
-
-    //     // ignore heap for kernel process as we don't manage it
-
-    //     self
-    // }
-    
-    pub fn init_kernel_vm(mut self) -> Self {
         self.stack = Stack::kstack();
+
+        // ignore heap for kernel process as we don't manage it
+
         self
     }
-
+    
     pub fn brk(&mut self, addr: Option<VirtAddr>) -> Option<VirtAddr> {
         self.heap.brk(
             addr,
