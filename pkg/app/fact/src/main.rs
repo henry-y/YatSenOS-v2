@@ -11,6 +11,9 @@ fn factorial(n: u64) -> u64 {
     if n == 0 {
         1
     } else {
+        if n % 100000 == 0 {
+            sys_stat();
+        }
         n * factorial(n - 1) % MOD
     }
 }

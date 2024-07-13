@@ -136,37 +136,49 @@ impl ProcessVm {
         self.stack.memory_usage() + self.heap.memory_usage() + self.code_usage
     }
 
-    // pub(super) fn clean_up(&mut self) -> Result<(), UnmapError> {
-    //     let mapper = &mut self.page_table.mapper();
-    //     let dealloc = &mut *get_frame_alloc_for_sure();
+    pub(super) fn clean_up(&mut self) -> Result<(), UnmapError> {
+        let mapper = &mut self.page_table.mapper();
+        let dealloc = &mut *get_frame_alloc_for_sure();
+        
+        let start_count = dealloc.frames_recycled();
 
-    //     // FIXME: implement the `clean_up` function for `Stack`
-    //     self.stack.clean_up(mapper, dealloc)?;
+        // FIXME: implement the `clean_up` function for `Stack`
+        self.stack.clean_up(mapper, dealloc)?;
 
-    //     if self.page_table.using_count() == 1 {
-    //         // free heap
-    //         // FIXME: implement the `clean_up` function for `Heap`
-    //         self.heap.clean_up(mapper, dealloc)?;
+        if self.page_table.using_count() == 1 {
+            // free heap
+            // FIXME: implement the `clean_up` function for `Heap`
+            self.heap.clean_up(mapper, dealloc)?;
 
-    //         // free code
-    //         for page_range in self.code.iter() {
-    //             elf::unmap_range(*page_range, mapper, dealloc, true)?;
-    //         }
+            // free code
+            for page_range in self.code.iter() {
+                elf::unmap_range(*page_range, mapper, dealloc, true)?;
+            }
 
-    //         unsafe {
-    //             // free P1-P3
-    //             mapper.clean_up(dealloc);
+            unsafe {
+                // free P1-P3
+                mapper.clean_up(dealloc);
 
-    //             // free P4
-    //             dealloc.deallocate_frame(self.page_table.reg.addr);
-    //         }
-    //     }
+                // free P4
+                dealloc.deallocate_frame(self.page_table.reg.addr);
+            }
+        }
 
-    //     // NOTE: maybe print how many frames are recycled
-    //     //       **you may need to add some functions to `BootInfoFrameAllocator`**
+        // NOTE: maybe print how many frames are recycled
+        //       **you may need to add some functions to `BootInfoFrameAllocator`**
+        
+        let end_count = dealloc.frames_recycled();
 
-    //     Ok(())
-    // }
+        debug!(
+            "Recycled {}({:.3} MiB) frames, {}({:.3} MiB) frames in total.",
+            end_count - start_count,
+            ((end_count - start_count) * 4) as f32 / 1024.0,
+            end_count,
+            (end_count * 4) as f32 / 1024.0
+        );
+
+        Ok(())
+    }
 }
 
 impl core::fmt::Debug for ProcessVm {
@@ -179,5 +191,13 @@ impl core::fmt::Debug for ProcessVm {
             .field("memory_usage", &format!("{} {}", size, unit))
             .field("page_table", &self.page_table)
             .finish()
+    }
+}
+
+impl Drop for ProcessVm {
+    fn drop(&mut self) {
+        if let Err(err) = self.clean_up() {
+            error!("Failed to clean up process memory: {:?}", err);
+        }
     }
 }

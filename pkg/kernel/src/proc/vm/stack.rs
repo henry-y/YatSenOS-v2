@@ -1,7 +1,7 @@
 use core::ptr::copy_nonoverlapping;
 
 use x86_64::{
-    structures::paging::{mapper::MapToError, page::*, Page},
+    structures::paging::{mapper::{MapToError, UnmapError}, page::*, Page},
     VirtAddr,
 };
 
@@ -196,6 +196,30 @@ impl Stack {
     pub fn memory_usage(&self) -> u64 {
         self.usage * crate::memory::PAGE_SIZE
     }
+
+    pub fn clean_up(
+        &mut self,
+        // following types are defined in
+        //   `pkg/kernel/src/proc/vm/mod.rs`
+        mapper: MapperRef,
+        dealloc: FrameAllocatorRef,
+    ) -> Result<(), UnmapError> {
+        if self.usage == 0 {
+            warn!("Stack is empty, no need to clean up.");
+            return Ok(());
+        }
+
+        // FIXME: unmap stack pages with `elf::unmap_pages`
+
+        let start = self.range.start.start_address().as_u64();
+
+        elf::unmap_pages(start, self.usage, mapper, dealloc, true)?;
+
+        self.usage = 0;
+
+        Ok(())
+    }
+
 }
 
 impl core::fmt::Debug for Stack {
