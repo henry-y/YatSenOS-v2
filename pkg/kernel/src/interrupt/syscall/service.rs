@@ -1,5 +1,7 @@
 use core::alloc::Layout;
 
+use x86_64::VirtAddr;
+
 use crate::proc::*;
 use crate::utils::*;
 
@@ -114,4 +116,13 @@ pub fn sys_sem(args: &SyscallArgs, context: &mut ProcessContext) {
         3 => sem_wait(args.arg1 as u32, context),
         _ => context.set_rax(usize::MAX),
     }
+}
+
+pub fn sys_brk(args: &SyscallArgs) -> usize {
+    let new_heap_end = if args.arg0 == 0 {
+        None
+    } else {
+        Some(args.arg0)
+    };
+    brk(new_heap_end)
 }

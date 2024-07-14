@@ -253,3 +253,10 @@ pub fn remove_sem(key: u32) -> usize {
         }
     })
 }
+
+pub fn brk(addr: Option<usize>) -> usize {
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        // NOTE: `brk` does not need to get write lock
+        get_process_manager().current().read().brk(addr)
+    })
+}

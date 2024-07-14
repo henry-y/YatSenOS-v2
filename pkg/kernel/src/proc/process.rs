@@ -235,6 +235,12 @@ impl ProcessInner {
 
     }
 
+    pub fn brk(&self, addr: Option<usize>) -> usize {
+        match self.vm().brk(addr.map(|a| VirtAddr::new(a as u64))) {
+            Some(addr) => addr.as_u64() as usize,
+            None => !0,
+        }
+    }
 
 }
 

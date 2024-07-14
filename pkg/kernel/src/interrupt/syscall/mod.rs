@@ -39,6 +39,7 @@ pub fn dispatcher(context: &mut ProcessContext) {
     );
 
     match args.syscall {
+        Syscall::Brk => context.set_rax(sys_brk(&args)),
         // op: u8, key: u32, val: usize -> ret: any
         Syscall::Sem => sys_sem(&args, context),
         // None -> pid: u16 or 0 or -1
