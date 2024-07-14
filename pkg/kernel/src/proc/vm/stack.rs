@@ -134,6 +134,10 @@ impl Stack {
 
         let user_access = processor::current_pid() != KERNEL_PID;
 
+        if !user_access {
+            info!("Page fault on kernel at {:#x}", addr);
+        }
+
         elf::map_pages(
             new_start_page.start_address().as_u64(),
             page_count,
