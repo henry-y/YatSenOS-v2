@@ -119,6 +119,7 @@ pub fn sys_sem(args: &SyscallArgs, context: &mut ProcessContext) {
 }
 
 pub fn sys_brk(args: &SyscallArgs) -> usize {
+    info!("sys_brk: {:?}", args);
     let new_heap_end = if args.arg0 == 0 {
         None
     } else {

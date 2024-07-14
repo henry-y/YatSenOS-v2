@@ -6,7 +6,7 @@ members = [
     "pkg/kernel",
     "pkg/syscall",
     "pkg/lib",
-    "pkg/app/*"
+    "pkg/app/*",
 ]
 exclude = ["pkg/app/config", "pkg/app/.cargo"]
 
